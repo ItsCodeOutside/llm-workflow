@@ -1,0 +1,91 @@
+Build an app that allows the user to create an interactive workflow for LLM prompting with Google's Gemini LLM. The key requirements are:
+
+* The application should be responsive so that it works on both a mobile device and a desktop PC.
+* The application should allow the user to create a 'Project' and projects to the browser's local storage.
+* On creating a new project, the user should be presented with an interactive grid and an initial "Start Here" box in which they can type the initial prompt.
+* The use should then be allowed to link subsequent objects, each with their own prompts, to this start position.
+* It should be possible to create a conditional object where the next step is one of multiple branches, chosen by the conditional object's prompt response.
+* There should be a setting pages for obvious application-level properties such as the API key and standard LLM tweaks.
+* Each project should have a settings page for metadata such as name, description, author, etc...
+* There must be a "Run" button in the top-right corner
+* Running the project will cause the start prompt to be sent to Gemini and its response to be fed into the next prompt's input.
+* Each response should be available to the user for review as the project is running and a history of the last 20 runs (prompt + response/outcome) should be kept in the project and available in the GUI for review.
+
+Use CSS, jQuery, and HTML in a single HTML single file.
+
+
+----
+
+Please modify the application in the following ways:
+
+* Add visible links between the draggable objects, with an arrow indicating the direction that data will flow between them.
+* Make the 'x' in the top right of each object acts as a delete button, including a confirmation prompt.
+* Change the conditional node to a diamond shape.
+* The Gemini API key must be an application setting and saved along with the other settings into the browser's local storage.
+* Fix the 'Save Node' process so that it actually saves its information to local storage (At the moment, it looks like it's not saving, the node appears to show the new data briefly but immediately resets)
+* Change the Run Project button so that toggles into a 'Stop' button that ends the run prematurely
+
+
+----
+
+Please make the following changes:
+
+* Make the conditional node appear how it did before.
+* Make the link's arrows go to the edge of the destination node, not the centre.
+* Only show the node edit modal when a node is clicked, not dragged.
+* Use modal dialogues instead of browser message boxes in places like the delete confirmation and when notifying the user that the API key has not been set.
+* When a node is clicked, the last run's result for that node should be displayed below the 'Save Node' button.
+
+
+----
+
+Please make the following changes:
+
+* Change the default text for Node Name and Prompt to placeholders and only allow saving if both have content.
+* Make the link's start at the edge of the source node, not the centre.
+* Add a 'Help' button to the bottom of the left sidebar that shows a modal with instructions. The instructions must include examples of how to use branch conditions on Conditional Nodes.
+* Add a pull-out panel at the bottom that shows which node is currently executing with timestamps for each node's start and finish time and, when a run finishes, display the difference between the run's start time and its end time labelled as "Run duration" This final output should also show the total number of tokens used for the run. The content of this panel must reset at the start of each run.
+
+----
+
+We forgot something important! The Prompt Nodes need an option to select the node that their output should feed in to so please add that.
+
+It is important that only nodes linked to the start node get executed during a run.
+
+Also, I've noticed that clicking the 'X' to delete a node launches the edit modal, please prevent that.
+
+----
+
+Please split App.tsx into separate files.
+
+----
+
+
+Please make the following changes:
+
+* Prevent the node edit modal from displaying with the delete node 'X' icon is clicked.
+* Add a Conclusion Node object. This node's purpose is to nicely display the output that it has received. It cannot be given a next node.
+
+
+----
+
+Please make the following changes:
+
+* Make the conclusion node show its result from the last run in the edit modal below the Save Node button.
+* Add a Close Project button above the Help button. This button should ask for confirmation if there are unsaved changes and return to the main screen that lists the existing projects.
+* Add a Save button above the Close Project button that is only enabled if the currently open project has unsaved changes.
+
+----
+
+* Please remove the sidebar element that appears after the View Run History button when a node is selected.
+* Remove the Save Project button
+* Add two example projects:
+** The first project starts with a node asking the LLM to pick a number between 1 and 100. The first node's result goes into a Conditional node with two branches, one for the number being less than 50 and one for it being more. There should be two separate, appropriately labelled, conclusions.
+** The second project starts with a node asking the LLM to generate a short story about two characters puzzling out an escape room. The first node's result goes into another Prompt node that asks the LLM to lengthen the story by adding a conversation between the two characters where we learn they went to the same school. The second node's result goes into a Conditional node asking the LLM to decide if the story is interesting or not. If not, the branch goes to another Prompt node asking the LLM to make the story more interesting and that node's output goes back to the Conditional. If the story is interesting, the output is fed to a Conclusion node.
+
+----
+
+Please make the following changes:
+* Add a Variable node. This node requires a name and will be used in future nodes to reference its input. For example, if the node was called `myVar` then a future node can include {myVar} in its prompt and that will be replaced by input that the Variable node received. The node must have a Next Node picker.
+* For the application's Settings and Project Settings modals, only save the changes when the Save Settings button is clicked.
+* Add a peek icon to the application's Settings modal for the API key so the user can reveal it.

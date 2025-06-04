@@ -1,0 +1,6 @@
+{
+  "name": "LLM Interactive Workflow",
+  "description": "An application to create interactive workflows for LLM prompting with Google's Gemini LLM. Users can create projects, design prompt chains with conditional logic, and run them to see results.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
