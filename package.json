@@ -1,6 +1,7 @@
 {
   "name": "llm-interactive-workflow",
   "private": true,
+  "homepage": "https://itscodeoutside.github.io/llm-workflow/",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
