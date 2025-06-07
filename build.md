@@ -9,12 +9,12 @@ This project is designed as a client-side application and can be run directly in
 
 *   A modern web browser (e.g., Chrome, Firefox, Edge, Safari).
 *   (Optional but Recommended) A simple local HTTP server. Python's built-in server or Node.js `http-server` are good options.
-*   A Gemini API Key (see [readme.md](./readme.md#security-vulnerabilities--considerations) for important security notes).
+*   An OpenAI API Key (if you plan to use the ChatGPT provider). See [readme.md](./readme.md#security-vulnerabilities--considerations) for important security notes regarding API key handling.
 
 ## Setup and Running
 
 1.  **Download Files**:
-    *   Ensure you have all the project files (`index.html`, `index.tsx`, `App.tsx`, `types.ts`, `constants.ts`, `geminiService.ts`, and all files within the `src/` directory) in a single directory structure as provided.
+    *   Ensure you have all the project files (`index.html`, `index.tsx`, `App.tsx`, `types.ts`, `constants.ts`, `llmService.ts`, and all files within the `src/` directory) in a single directory structure as provided.
 
 2.  **Option A: Using a Simple HTTP Server (Recommended)**
     *   This method avoids potential CORS issues or restrictions that some browsers might impose when loading modules directly from the `file:///` protocol.
@@ -36,13 +36,17 @@ This project is designed as a client-side application and can be run directly in
 3.  **Option B: Opening `index.html` Directly (May have limitations)**
     *   Navigate to the project directory in your file explorer.
     *   Double-click the `index.html` file, or right-click and choose "Open with" your preferred web browser.
-    *   **Note**: Due to browser security policies regarding ES modules loaded via `file:///` protocol, this method might not work reliably in all browsers or might have limitations (e.g., issues with service workers if they were to be added). Using a local HTTP server is generally more robust for development.
+    *   **Note**: Due to browser security policies regarding ES modules loaded via `file:///` protocol, this method might not work reliably in all browsers or might have limitations. Using a local HTTP server is generally more robust for development.
 
-4.  **Configure API Key**:
+4.  **Configure API Key (for ChatGPT)**:
     *   Once the application is open in your browser:
     *   Click the "Settings" button in the header.
-    *   In the "Application Settings" modal, enter your Gemini API Key.
+    *   In the "Application Settings" modal:
+        *   Select "ChatGPT (OpenAI)" as the LLM Provider.
+        *   Enter your OpenAI API Key in the "ChatGPT API Key" field.
+        *   Choose your desired ChatGPT model.
     *   Click "Save App Settings". The API key is stored in your browser's `localStorage`. **Remember the security implications of this for any use beyond local personal testing.**
+    *   If using Ollama, configure its settings accordingly.
 
 5.  **Start Using the Application**:
     *   You can now create new projects or explore the example projects.

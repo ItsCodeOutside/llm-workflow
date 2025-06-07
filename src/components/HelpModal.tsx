@@ -1,3 +1,4 @@
+
 // src/components/HelpModal.tsx
 import React from 'react';
 import Modal from './Modal';
@@ -9,16 +10,17 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
       <div className="space-y-4 text-slate-300 max-h-[70vh] overflow-y-auto custom-scroll pr-2">
         <section>
           <h4 className="text-lg font-semibold text-sky-400 mb-2">Getting Started</h4>
-          <p>This application allows you to create interactive workflows for Large Language Models (LLMs) using Google's Gemini API.</p>
+          <p>This application allows you to create interactive workflows for Large Language Models (LLMs) like OpenAI's ChatGPT or local models via Ollama.</p>
           <ol className="list-decimal list-inside space-y-1 mt-1">
             <li>Create a new project or open an existing one.</li>
-            <li>Add nodes (Start, Prompt, Conditional, Variable, Conclusion) to the canvas.</li>
-            <li>Name your nodes. For Prompt nodes, write LLM prompts. For Variable nodes, give them a concise name (e.g., 'customerQuery'). For Conclusion nodes, set a display title.</li>
+            <li>Add nodes (Start, Prompt, Conditional, Variable, Question, Conclusion) to the canvas.</li>
+            <li>Name your nodes. For Prompt nodes, write LLM prompts. For Variable nodes, give them a concise name (e.g., 'customerQuery'). For Question nodes, write the question to ask the user. For Conclusion nodes, set a display title.</li>
             <li>Link nodes together to define the workflow data flow. Use the "Next Node" dropdown in the node editor.</li>
             <li>Use Conditional nodes to create branches based on LLM output.</li>
             <li>Use Variable nodes to store outputs for use in later prompts.</li>
+            <li>Use Question nodes to pause the workflow and ask the user for input.</li>
             <li>Use Conclusion nodes to display the final output of a workflow path.</li>
-            <li>Configure your Gemini API Key in "App Settings".</li>
+            <li>Configure your LLM provider and API Key (if applicable) in "App Settings". For ChatGPT, you'll need to enter your OpenAI API key.</li>
             <li>Run your project and review the results!</li>
           </ol>
         </section>
@@ -29,25 +31,20 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             <li><strong>Start Node:</strong> The entry point of your workflow. It has one output. Its prompt is sent to the LLM.</li>
             <li><strong>Prompt Node:</strong> Sends a prompt to the LLM. Can take input from a previous node using <code className="bg-slate-700 px-1 rounded text-sky-300">{'{PREVIOUS_OUTPUT}'}</code> and from Variable nodes using <code className="bg-slate-700 px-1 rounded text-sky-300">{'{variableName}'}</code>. Has one output.</li>
             <li><strong>Conditional Node:</strong> Evaluates the output from the previous node against defined conditions to decide the next step. Its prompt is sent to the LLM (can use variables).</li>
-            <li><strong>Variable Node:</strong> Captures the output from the previous node and stores it under its name. This name (e.g., 'myVar') can then be used as a placeholder <code className="bg-slate-700 px-1 rounded text-sky-300">{'{myVar}'}</code> in subsequent Start, Prompt, or Conditional nodes. It does not execute an LLM prompt itself. Has one output.</li>
+            <li><strong>Variable Node:</strong> Captures the output from the previous node and stores it under its name. This name (e.g., 'myVar') can then be used as a placeholder <code className="bg-slate-700 px-1 rounded text-sky-300">{'{myVar}'}</code> in subsequent Start, Prompt, Conditional or Question nodes. It does not execute an LLM prompt itself. Has one output.</li>
+            <li><strong>Question Node:</strong> Pauses the workflow and displays a modal asking the user for input. The "prompt" field of this node is the question shown to the user. The user's typed answer becomes the output of this node. It has one output. Placeholders like <code className="bg-slate-700 px-1 rounded text-sky-300">{'{PREVIOUS_OUTPUT}'}</code> or <code className="bg-slate-700 px-1 rounded text-sky-300">{'{variableName}'}</code> can be used in the question text for context.</li>
             <li><strong>Conclusion Node:</strong> Displays the output received from the previous node. It does not execute an LLM prompt and cannot be linked to a next node. Its "prompt" field in the editor is used as a display title.</li>
           </ul>
         </section>
         <hr className="border-slate-700"/>
         <section>
-          <h4 className="text-lg font-semibold text-sky-400 mb-2">Using Placeholders in Prompts</h4>
-          <p>In Start, Prompt, and Conditional Node prompts, you can use placeholders:</p>
+          <h4 className="text-lg font-semibold text-sky-400 mb-2">Using Placeholders in Prompts/Questions</h4>
+          <p>In Start, Prompt, Conditional Node prompts, and Question Node questions, you can use placeholders:</p>
           <ul className="list-disc list-inside space-y-1 mt-1">
-            <li><code className="bg-slate-700 px-1 rounded text-sky-300">{'{PREVIOUS_OUTPUT}'}</code>: This is replaced with the text generated by the node that directly feeds into the current node.</li>
-            <li><code className="bg-slate-700 px-1 rounded text-sky-300">{'{variableName}'}</code>: If you have a Variable Node named (for example) 'customerInfo', you can use <code className="bg-slate-700 px-1 rounded text-sky-300">{'{customerInfo}'}</code> in a later node's prompt. This will be replaced by the value that the 'customerInfo' Variable Node captured. Variable names should not contain spaces or special characters.</li>
+            <li><code className="bg-slate-700 px-1 rounded text-sky-300">{'{PREVIOUS_OUTPUT}'}</code>: This is replaced with the text generated or input by the node that directly feeds into the current node.</li>
+            <li><code className="bg-slate-700 px-1 rounded text-sky-300">{'{variableName}'}</code>: If you have a Variable Node named (for example) 'customerInfo', you can use <code className="bg-slate-700 px-1 rounded text-sky-300">{'{customerInfo}'}</code> in a later node's prompt/question. This will be replaced by the value that the 'customerInfo' Variable Node captured. Variable names should not contain spaces or special characters.</li>
           </ul>
           <p className="mt-1"><strong>Replacement Order:</strong> Custom variables like <code className="bg-slate-700 px-1 rounded text-sky-300">{'{variableName}'}</code> are replaced first, then <code className="bg-slate-700 px-1 rounded text-sky-300">{'{PREVIOUS_OUTPUT}'}</code> is replaced.</p>
-          <p className="mt-1">Example: Node A (Start) outputs "The topic is AI ethics." This feeds into Node B (Variable) named 'mainTopic'. Node B feeds into Node C (Prompt).<br/>
-          Node C's prompt: "Discuss <code className="bg-slate-700 px-1 rounded text-sky-300">{'{mainTopic}'}</code>. The previous direct input was: <code className="bg-slate-700 px-1 rounded text-sky-300">{'{PREVIOUS_OUTPUT}'}</code>."<br/>
-          When Node C runs, <code className="bg-slate-700 px-1 rounded text-sky-300">{'{mainTopic}'}</code> becomes "The topic is AI ethics." (from Variable Node B).<br/>
-           <code className="bg-slate-700 px-1 rounded text-sky-300">{'{PREVIOUS_OUTPUT}'}</code> becomes "The topic is AI ethics." (from Node B, which is the direct input to C).<br/>
-          So, the LLM receives: "Discuss The topic is AI ethics. The previous direct input was: The topic is AI ethics."
-          </p>
         </section>
         <hr className="border-slate-700"/>
         <section>
@@ -66,11 +63,23 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             <h4 className="text-lg font-semibold text-sky-400 mb-2">Execution Panel</h4>
             <p>The panel at the bottom shows real-time information during a workflow run:</p>
             <ul className="list-disc list-inside space-y-1 mt-1">
-                <li>Currently executing node.</li>
-                <li>A log of each node: start time, end time, status, output (or value set for Variable nodes), and tokens used.</li>
+                <li>Currently executing node or if awaiting user input.</li>
+                <li>A log of each node: start time, end time, status (running, completed, failed, skipped, variable_set, awaiting_input), output (or value set for Variable nodes, user's answer for Question nodes), and tokens used.</li>
                 <li>After the run: total duration and total tokens for the entire workflow.</li>
             </ul>
             <p>This panel can be collapsed or expanded using the button on its header.</p>
+        </section>
+        <hr className="border-slate-700"/>
+        <section>
+          <h4 className="text-lg font-semibold text-sky-400 mb-2">API Keys & Security</h4>
+          <p>
+            When using ChatGPT as the LLM provider, you must enter your OpenAI API key in the "App Settings".
+            This key is stored in your browser's local storage.
+          </p>
+          <p className="font-semibold text-yellow-400 mt-1">
+            Important: Storing API keys in browser local storage is convenient for local development but is insecure for production or shared environments.
+            If this application were deployed, a backend proxy should handle API key management to protect your key.
+          </p>
         </section>
       </div>
     </Modal>

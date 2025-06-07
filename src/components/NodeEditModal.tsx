@@ -32,9 +32,10 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
     let isDisabled = !nodeToValidate.name?.trim();
     if (nodeToValidate.type === NodeType.CONCLUSION) {
       isDisabled = isDisabled || !nodeToValidate.prompt?.trim() || !nodeToValidate.outputFormatTemplate?.trim();
-    } else if (nodeToValidate.type !== NodeType.VARIABLE) { // START, PROMPT, CONDITIONAL
+    } else if (nodeToValidate.type !== NodeType.VARIABLE) { // START, PROMPT, CONDITIONAL, QUESTION
       isDisabled = isDisabled || !nodeToValidate.prompt?.trim();
     }
+    // Variable nodes only need a name
     setIsSaveDisabled(isDisabled);
   };
 
@@ -101,19 +102,24 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
   const isPromptRelevant = editableNode.type === NodeType.START || 
                            editableNode.type === NodeType.PROMPT || 
                            editableNode.type === NodeType.CONDITIONAL ||
-                           editableNode.type === NodeType.CONCLUSION;
+                           editableNode.type === NodeType.CONCLUSION ||
+                           editableNode.type === NodeType.QUESTION;
 
   const promptLabel = editableNode.type === NodeType.CONCLUSION 
                       ? 'Display Title' 
                       : (editableNode.type === NodeType.VARIABLE 
                           ? 'Variable Description (Optional)' 
-                          : `Prompt (use {PREVIOUS_OUTPUT} or a variable {varName})`);
+                          : (editableNode.type === NodeType.QUESTION
+                              ? 'Question for User (use {PREVIOUS_OUTPUT} or {varName} for context)'
+                              : `Prompt (use {PREVIOUS_OUTPUT} or {varName})`));
   
   const promptPlaceholder = editableNode.type === NodeType.CONCLUSION 
                             ? 'Enter a title for the displayed output' 
                             : (editableNode.type === NodeType.VARIABLE 
                                 ? 'Describe what this variable represents'
-                                : "Enter the LLM prompt here...");
+                                : (editableNode.type === NodeType.QUESTION
+                                    ? 'Enter the question to ask the user'
+                                    : "Enter the LLM prompt here..."));
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Edit Node: ${editableNode.name || editableNode.type}`}>
@@ -148,6 +154,7 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
             />
             {editableNode.type === NodeType.CONCLUSION && <p className="text-xs text-slate-400 mt-1">This title will appear above the final output displayed by this node.</p>}
             {editableNode.type === NodeType.VARIABLE && <p className="text-xs text-slate-400 mt-1">This description is for your reference only.</p>}
+             {editableNode.type === NodeType.QUESTION && <p className="text-xs text-slate-400 mt-1">This question will be shown to the user during the run. Their input becomes the output of this node.</p>}
           </div>
         )}
 
@@ -167,7 +174,7 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
             </div>
         )}
 
-        {(editableNode.type === NodeType.PROMPT || editableNode.type === NodeType.START || editableNode.type === NodeType.VARIABLE) && (
+        {(editableNode.type === NodeType.PROMPT || editableNode.type === NodeType.START || editableNode.type === NodeType.VARIABLE || editableNode.type === NodeType.QUESTION) && (
           <div>
             <label htmlFor="nextNodeId" className="block text-sm font-medium">Next Node</label>
             <select name="nextNodeId" id="nextNodeId" value={editableNode.nextNodeId || ''} onChange={handleChange} className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm">

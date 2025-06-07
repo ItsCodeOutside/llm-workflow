@@ -5,37 +5,38 @@ export enum NodeType {
   CONDITIONAL = 'CONDITIONAL',
   CONCLUSION = 'CONCLUSION',
   VARIABLE = 'VARIABLE', // Added Variable Node Type
+  QUESTION = 'QUESTION', // Added Question Node Type
 }
 
 export interface Node {
   id: string;
   type: NodeType;
   name: string; // User-defined name for the node. For Variable nodes, this is the variable name.
-  prompt: string; // The LLM prompt, or display title for Conclusion node. Not directly used by Variable node for LLM call.
+  prompt: string; // The LLM prompt, or display title for Conclusion node, or question for Question node.
   outputFormatTemplate?: string; // For Conclusion nodes: template for formatting {PREVIOUS_OUTPUT}
   position: { x: number; y: number };
-  nextNodeId?: string | null; // Used by START, PROMPT, VARIABLE. Not by CONCLUSION.
+  nextNodeId?: string | null; // Used by START, PROMPT, VARIABLE, QUESTION. Not by CONCLUSION.
   branches?: Array<{ condition: string; nextNodeId: string | null; id: string }>; // Only for CONDITIONAL
-  lastRunOutput?: string; 
-  isRunning?: boolean; 
-  hasError?: boolean; 
+  lastRunOutput?: string;
+  isRunning?: boolean;
+  hasError?: boolean;
 }
 
 export interface Link {
   id: string;
   sourceId: string;
   targetId: string;
-  condition?: string; 
+  condition?: string;
 }
 
 export interface RunStep {
   nodeId: string;
   nodeName: string;
-  promptSent: string; // For Variable node, could be "Storing input as 'variableName'"
-  responseReceived: string; // For Variable node, could be the value stored
+  promptSent: string; // For Variable node, could be "Storing input as 'variableName'". For Question node, the question asked.
+  responseReceived: string; // For Variable node, could be the value stored. For Question node, the user's answer.
   error?: string;
   timestamp: string;
-  tokensUsed?: number; 
+  tokensUsed?: number;
 }
 
 export interface ProjectRun {
@@ -43,30 +44,37 @@ export interface ProjectRun {
   timestamp: string;
   status: 'completed' | 'failed' | 'running' | 'stopped';
   steps: RunStep[];
-  finalOutput?: string; 
+  finalOutput?: string;
   error?: string;
-  totalTokensUsed?: number; 
-  durationMs?: number; 
+  totalTokensUsed?: number;
+  durationMs?: number;
 }
 
-export type LLMProvider = 'gemini' | 'ollama';
+export enum LLMProvider {
+  CHATGPT = 'chatgpt',
+  OLLAMA = 'ollama',
+  // GEMINI = 'gemini', // Removed Gemini
+}
 
 export interface AppSettings {
   llmProvider: LLMProvider;
-  
+
   // Common LLM parameters
   temperature: number;
-  topK: number;
+  topK: number; // Retained for Ollama
   topP: number;
 
-  // Gemini specific
-  geminiModel: string;
-  geminiApiKey: string; // Added for user-input API key
+  // ChatGPT specific
+  chatGptModel: string;
+  chatGptApiKey: string;
 
   // Ollama specific
   ollamaBaseUrl: string;
   ollamaModel: string;
-  ollamaKeepAlive: string; // e.g., "5m", "1h", or "-1" for indefinite
+  ollamaKeepAlive: string;
+
+  // Gemini specific (Removed)
+  // geminiModel: string;
 }
 
 export interface NodeModalProps {
@@ -100,7 +108,7 @@ export interface RunHistoryModalProps {
 // For LLM API response - specifically token usage
 export interface LLMUsageMetadata {
   promptTokenCount?: number;
-  candidatesTokenCount?: number;
+  candidatesTokenCount?: number; // For OpenAI, this would be completion_tokens
   totalTokenCount?: number;
 }
 
@@ -115,7 +123,7 @@ export interface NodeExecutionLog {
   nodeName: string;
   startTime: string; // ISO string
   endTime?: string; // ISO string, set when completed or failed
-  status: 'running' | 'completed' | 'failed' | 'skipped' | 'variable_set'; // Added variable_set
+  status: 'running' | 'completed' | 'failed' | 'skipped' | 'variable_set' | 'awaiting_input'; // Added variable_set and awaiting_input
   output?: string;
   error?: string;
   tokensUsed?: number;
@@ -127,7 +135,7 @@ export interface Project {
   description: string;
   author: string;
   nodes: Node[];
-  links: Link[]; 
+  links: Link[];
   runHistory: ProjectRun[];
   createdAt: string;
   updatedAt: string;
@@ -159,4 +167,50 @@ export interface ZoomControlsProps {
   onReset: () => void;
   minScale?: number;
   maxScale?: number;
+}
+
+// Props for new Sidebar component
+export interface SidebarProps {
+  isSidebarOpen: boolean;
+  toggleSidebar: () => void;
+  onAddNode: (type: NodeType) => void;
+  onOpenProjectSettingsModal: () => void;
+  onOpenRunHistoryModal: () => void;
+  projectRunHistoryCount: number;
+  onCloseProject: () => void;
+  isWorkflowRunning: boolean;
+  onOpenHelpModal: () => void;
+}
+
+// Props for new CanvasArea component
+export interface CanvasAreaProps {
+  nodes: Node[];
+  visualLinks: Link[];
+  getLineToRectangleIntersectionPoint: (
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    rect: { x: number; y: number; width: number; height: number }
+  ) => { x: number; y: number };
+  scale: number;
+  translate: { x: number; y: number };
+  editorAreaRef: React.RefObject<HTMLDivElement>;
+  canvasContentRef: React.RefObject<HTMLDivElement>;
+  onNodeMouseDown: (nodeId: string, e: React.MouseEvent) => void;
+  onWheel: (e: React.WheelEvent) => void;
+  onCanvasMouseDown: (e: React.MouseEvent) => void;
+  zoomControls: {
+    scale: number;
+    onZoomIn: () => void;
+    onZoomOut: () => void;
+    onReset: () => void;
+    minScale: number;
+    maxScale: number;
+  };
+}
+
+export interface QuestionInputModalProps {
+  isOpen: boolean;
+  questionText: string;
+  onSubmit: (answer: string) => void;
+  onEndRun: () => void;
 }
