@@ -133,6 +133,7 @@ export const useNodeManagement = ({
   }, [currentProject, setCurrentProject, deleteNodeConfirm.nodeId]);
 
   const handleDeleteNodeRequest = useCallback((nodeId: string, e: React.MouseEvent) => {
+    console.log('handleDeleteNodeRequest', nodeId, e);
     e.stopPropagation();
     if (!currentProject) return;
     const nodeToDelete = getValidNodes(currentProject.nodes).find(n => n.id === nodeId);

@@ -1,4 +1,3 @@
-
 // src/pages/ProjectEditorPage.tsx
 import React, { useEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
@@ -246,6 +245,7 @@ const ProjectEditorPage: React.FC = () => {
             minScale: MIN_SCALE,
             maxScale: MAX_SCALE,
           }}
+          handleDeleteNodeRequest={handleDeleteNodeRequest} // <-- Add this line
         />
       </div>
 

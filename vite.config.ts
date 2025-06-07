@@ -1,4 +1,3 @@
-import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 
@@ -15,8 +14,5 @@ export default defineConfig(({ mode }) => {
         }
       },
       base: '/llm-workflow/',
-      plugins: [
-        tailwindcss(),
-      ],
     };
 });

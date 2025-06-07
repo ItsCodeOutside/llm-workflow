@@ -1,4 +1,3 @@
-
 // src/components/editor/CanvasArea.tsx
 import React from 'react';
 import ZoomControls from '../ZoomControls';
@@ -20,6 +19,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   onWheel,
   onCanvasMouseDown,
   zoomControls,
+  handleDeleteNodeRequest, // <-- Add this line
 }) => {
 
   const getNodeById = (id: string): Node | undefined => nodes.find(n => n.id === id);
@@ -84,6 +84,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
                         className="node-delete-button text-red-300 hover:text-red-100 text-xs p-0.5 rounded-full hover:bg-red-500/50 absolute top-1 right-1 z-10"
                         aria-label={`Delete node ${node.name || node.type}`}
                         onMouseDown={(e) => e.stopPropagation()} 
+                        onClick={(e) => handleDeleteNodeRequest(node.id, e)}
                     >
                         <i className="fas fa-times"></i>
                     </button>

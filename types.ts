@@ -1,4 +1,3 @@
-
 export enum NodeType {
   START = 'START',
   PROMPT = 'PROMPT',
@@ -206,6 +205,7 @@ export interface CanvasAreaProps {
     minScale: number;
     maxScale: number;
   };
+  handleDeleteNodeRequest: (nodeId: string, e: React.MouseEvent) => void;
 }
 
 export interface QuestionInputModalProps {
