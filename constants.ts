@@ -2,11 +2,15 @@
 import { AppSettings, Node, NodeType } from './types';
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  apiKey: '', 
-  geminiModel: 'gemini-2.5-flash-preview-04-17',
+  llmProvider: 'gemini',
+  geminiModel: 'gemini-2.5-flash-preview-04-17', // Updated Gemini model
+  geminiApiKey: '', // Added for user-input API key
   temperature: 0.7,
   topK: 40,
   topP: 0.95,
+  ollamaBaseUrl: 'http://localhost:11434',
+  ollamaModel: 'llama3', // A common default, user can change
+  ollamaKeepAlive: '5m',
 };
 
 export const MAX_RUN_HISTORY = 20;

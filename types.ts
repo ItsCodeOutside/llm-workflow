@@ -12,6 +12,7 @@ export interface Node {
   type: NodeType;
   name: string; // User-defined name for the node. For Variable nodes, this is the variable name.
   prompt: string; // The LLM prompt, or display title for Conclusion node. Not directly used by Variable node for LLM call.
+  outputFormatTemplate?: string; // For Conclusion nodes: template for formatting {PREVIOUS_OUTPUT}
   position: { x: number; y: number };
   nextNodeId?: string | null; // Used by START, PROMPT, VARIABLE. Not by CONCLUSION.
   branches?: Array<{ condition: string; nextNodeId: string | null; id: string }>; // Only for CONDITIONAL
@@ -48,12 +49,24 @@ export interface ProjectRun {
   durationMs?: number; 
 }
 
+export type LLMProvider = 'gemini' | 'ollama';
+
 export interface AppSettings {
-  apiKey?: string; 
-  geminiModel: string;
+  llmProvider: LLMProvider;
+  
+  // Common LLM parameters
   temperature: number;
   topK: number;
   topP: number;
+
+  // Gemini specific
+  geminiModel: string;
+  geminiApiKey: string; // Added for user-input API key
+
+  // Ollama specific
+  ollamaBaseUrl: string;
+  ollamaModel: string;
+  ollamaKeepAlive: string; // e.g., "5m", "1h", or "-1" for indefinite
 }
 
 export interface NodeModalProps {
@@ -84,16 +97,16 @@ export interface RunHistoryModalProps {
   onClose: () => void;
 }
 
-// For Gemini API response - specifically token usage
-export interface GeminiUsageMetadata {
+// For LLM API response - specifically token usage
+export interface LLMUsageMetadata {
   promptTokenCount?: number;
   candidatesTokenCount?: number;
   totalTokenCount?: number;
 }
 
-export interface GeminiExecutePromptResponse {
+export interface LLMExecutePromptResponse {
   text: string;
-  usageMetadata?: GeminiUsageMetadata;
+  usageMetadata?: LLMUsageMetadata;
 }
 
 // For the new Execution Status Panel
@@ -123,4 +136,27 @@ export interface Project {
 export interface HelpModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+export interface ExportProjectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  projectJson: string;
+  projectName: string;
+}
+
+export interface ImportProjectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onImport: (jsonString: string) => void;
+  errorMessage?: string | null; // Added errorMessage prop
+}
+
+export interface ZoomControlsProps {
+  scale: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+  minScale?: number;
+  maxScale?: number;
 }

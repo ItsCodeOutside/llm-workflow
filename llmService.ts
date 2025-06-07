@@ -4,10 +4,10 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { AppSettings, LLMExecutePromptResponse, LLMUsageMetadata, LLMProvider } from './types';
 
 const executeGeminiPrompt = async (prompt: string, settings: AppSettings): Promise<LLMExecutePromptResponse> => {
-  // API key is expected to be in process.env.API_KEY as per guidelines.
-  // The GoogleGenAI constructor will use it.
-  // If process.env.API_KEY is not set, the SDK call will fail.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  if (!settings.geminiApiKey) {
+    throw new Error("Gemini API Error: API key is missing. Please configure it in Application Settings.");
+  }
+  const ai = new GoogleGenAI({ apiKey: settings.geminiApiKey });
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
@@ -40,8 +40,11 @@ const executeGeminiPrompt = async (prompt: string, settings: AppSettings): Promi
   } catch (error) {
     console.error("Error calling Gemini API:", error);
     if (error instanceof Error) {
-        if (error.message.includes("API key not valid") || error.message.toLowerCase().includes("api_key_invalid") || error.message.includes("permission denied")) {
-             throw new Error(`Gemini API Error: API key issue. Please ensure API_KEY is correctly configured in the environment. Original: ${error.message}`);
+        if (error.message.includes("API key not valid") || 
+            error.message.toLowerCase().includes("api_key_invalid") || 
+            error.message.includes("permission denied") ||
+            error.message.toLowerCase().includes("api key is missing")) { // Catch our own error too
+             throw new Error(`Gemini API Error: API key issue. Please check your API Key in Application Settings. Original: ${error.message}`);
         }
         throw new Error(`Gemini API Error: ${error.message}`);
     }

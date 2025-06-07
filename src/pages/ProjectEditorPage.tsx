@@ -1,6 +1,6 @@
 
 // src/pages/ProjectEditorPage.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 
 import Header from '../components/Header';
@@ -9,668 +9,260 @@ import ProjectSettingsModal from '../components/ProjectSettingsModal';
 import RunHistoryModal from '../components/RunHistoryModal';
 import HelpModal from '../components/HelpModal';
 import ConfirmationModal from '../components/ConfirmationModal';
-import UnsavedChangesModal from '../components/UnsavedChangesModal'; 
+import UnsavedChangesModal from '../components/UnsavedChangesModal';
 import ExecutionStatusPanel from '../components/ExecutionStatusPanel';
+import ZoomControls from '../components/ZoomControls'; // New
 
-import { useProjects, useAppSettings } from '../hooks';
-import { executePrompt } from '../../geminiService';
-import { deepClone, generateId } from '../utils';
-import { 
-    MAX_RUN_HISTORY, NODE_WIDTH, NODE_HEIGHT, GRID_CELL_SIZE, 
-    NODE_COLORS, MAX_CLICK_MOVEMENT, INITIAL_NODE_NAME, INITIAL_NODE_PROMPT,
-    INITIAL_START_NODE_PROMPT, INITIAL_CONCLUSION_NODE_TITLE, INITIAL_VARIABLE_NODE_NAME
+import { useProjects } from '../hooks'; 
+import { useProjectStateManagement } from '../hooks/useProjectStateManagement';
+import { useNodeManagement } from '../hooks/useNodeManagement';
+import { useNodeDragging } from '../hooks/useNodeDragging';
+import { useWorkflowExecution } from '../hooks/useWorkflowExecution';
+import { useEditorModals } from '../hooks/useEditorModals';
+import { useVisualLinks } from '../hooks/useVisualLinks';
+
+import { getValidNodes } from '../utils';
+import {
+  NODE_WIDTH, NODE_HEIGHT, GRID_CELL_SIZE,
+  NODE_COLORS, INITIAL_CONCLUSION_NODE_TITLE,
 } from '../../constants';
-import { 
-    type Project, type Node, NodeType, type ProjectRun, type RunStep, 
-    type Link as VisualLink, type GeminiExecutePromptResponse, type NodeExecutionLog 
+import {
+  type Project, type Node, NodeType, type Link as VisualLink,
 } from '../../types';
 
 
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 2;
+const ZOOM_SENSITIVITY = 0.001; // Adjust for desired zoom speed
+
 const ProjectEditorPage: React.FC = () => {
-  const { projectId } = useParams<{ projectId: string }>();
-  const { getProjectById, updateProject } = useProjects();
-  const { appSettings } = useAppSettings();
-  const navigate = useNavigate();
+  const editorAreaRef = useRef<HTMLDivElement>(null); // This is the outer viewport
+  const canvasContentRef = useRef<HTMLDivElement>(null); // This is the pannable/zoomable content
 
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [selectedNodeState, setSelectedNodeState] = useState<Node | null>(null);
-  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
-  const [isProjectSettingsModalOpen, setIsProjectSettingsModalOpen] = useState(false);
-  const [isRunHistoryModalOpen, setIsRunHistoryModalOpen] = useState(false);
-  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
-  
-  const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
-  const isStopRequestedRef = useRef(false);
-  
-  const [deleteNodeConfirm, setDeleteNodeConfirm] = useState<{ isOpen: boolean; nodeId: string | null; nodeName: string | null }>({ isOpen: false, nodeId: null, nodeName: null });
-  const [apiKeyMissingModalOpen, setApiKeyMissingModalOpen] = useState(false);
-  const [deleteActionInitiated, setDeleteActionInitiated] = useState(false);
-
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [isUnsavedChangesModalOpen, setIsUnsavedChangesModalOpen] = useState(false);
-
-  const [executionLogs, setExecutionLogs] = useState<NodeExecutionLog[]>([]);
-  const [currentExecutingNodeId, setCurrentExecutingNodeId] = useState<string | null>(null);
-  const [runStartTime, setRunStartTime] = useState<number | null>(null);
-  const [runEndTime, setRunEndTime] = useState<number | null>(null);
-  const [totalTokensThisRun, setTotalTokensThisRun] = useState<number>(0);
-  const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState<boolean>(false);
-
-  const editorAreaRef = useRef<HTMLDivElement>(null);
-  const [draggingNode, setDraggingNode] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
-  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const isActuallyDraggingRef = useRef(false);
-  
-  const [visualLinks, setVisualLinks] = useState<VisualLink[]>([]);
-
-  // Helper function to filter out null/undefined nodes
-  const getValidNodes = (nodes: (Node | null | undefined)[] | undefined): Node[] => {
-    return nodes?.filter((n): n is Node => n !== null && n !== undefined) || [];
-  };
-
-  useEffect(() => {
-    if (!projectId) {
-      navigate('/');
-      return;
-    }
-    const project = getProjectById(projectId);
-    if (project) {
-      // Sanitize nodes when loading the project
-      const sanitizedProject = {
-        ...project,
-        nodes: getValidNodes(project.nodes),
-      };
-      setCurrentProject(deepClone(sanitizedProject));
-      setHasUnsavedChanges(false); 
-    } else {
-      console.warn(`Project with ID ${projectId} not found.`);
-      navigate('/');
-    }
-  }, [projectId, getProjectById, navigate]); 
-
-  useEffect(() => {
-    if (currentProject) {
-      const newVisualLinks: VisualLink[] = [];
-      const validNodes = getValidNodes(currentProject.nodes); // Use validated nodes
-      validNodes.forEach(sourceNode => {
-        const processLink = (targetNodeId: string | null | undefined, condition?: string) => {
-          if (targetNodeId) {
-            const targetNode = validNodes.find(n => n.id === targetNodeId);
-            if (targetNode) {
-                 newVisualLinks.push({ id: `${sourceNode.id}-${targetNodeId}-${condition || 'direct'}`, sourceId: sourceNode.id, targetId: targetNodeId, condition });
-            }
-          }
-        };
-
-        if (sourceNode.type === NodeType.PROMPT || sourceNode.type === NodeType.START || sourceNode.type === NodeType.VARIABLE) {
-          processLink(sourceNode.nextNodeId);
-        } else if (sourceNode.type === NodeType.CONDITIONAL && sourceNode.branches) {
-          sourceNode.branches.forEach(branch => {
-            processLink(branch.nextNodeId, branch.condition);
-          });
-        }
-      });
-      setVisualLinks(newVisualLinks);
-    }
-  }, [currentProject]);
-
-  const saveProjectState = useCallback((projectState: Project | null, skipSetCurrent: boolean = false) => {
-      if (!projectState) return;
-      const projectToSave = { 
-          ...projectState, 
-          nodes: getValidNodes(projectState.nodes), // Ensure nodes are valid before saving
-          updatedAt: new Date().toISOString() 
-      };
-      updateProject(projectToSave); 
-      if (!skipSetCurrent) {
-        setCurrentProject(projectToSave); 
-      }
-      setHasUnsavedChanges(false); 
-  }, [updateProject]);
+  // Pan and Zoom State
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStartPoint, setPanStartPoint] = useState({ x: 0, y: 0 });
 
 
-  const handleAddNode = (type: NodeType) => {
-    if (!currentProject) return;
-    const editorWidth = editorAreaRef.current?.clientWidth || 800;
-    const editorHeight = editorAreaRef.current?.clientHeight || 600;
+  // Core State Management and Project Data
+  const {
+    projectId, 
+    currentProject,
+    setCurrentProject, 
+    isLoading,
+    hasUnsavedChanges,
+    saveProjectState,
+    isUnsavedChangesModalOpen,
+    setIsUnsavedChangesModalOpen, 
+    handleRequestCloseProject,
+    handleSaveAndClose,
+    handleCloseWithoutSaving,
+  } = useProjectStateManagement();
+
+  // Modal States (ProjectSettings, RunHistory, Help, LlmError)
+  const {
+    isProjectSettingsModalOpen, openProjectSettingsModal, closeProjectSettingsModal,
+    isRunHistoryModalOpen, openRunHistoryModal, closeRunHistoryModal,
+    isHelpModalOpen, openHelpModal, closeHelpModal,
+    isLlmErrorModalOpen, llmErrorMessage, openLlmErrorModal, closeLlmErrorModal
+  } = useEditorModals();
+
+  // Node Management (Add, Edit, Delete, NodeModal)
+  const {
+    selectedNodeState, setSelectedNodeState,
+    isNodeModalOpen, setIsNodeModalOpen,
+    deleteNodeConfirm, setDeleteNodeConfirm,
+    deleteActionInitiated, setDeleteActionInitiated,
+    handleAddNode,
+    handleSaveNode,
+    confirmDeleteNode,
+    handleDeleteNodeRequest,
+  } = useNodeManagement({ currentProject, setCurrentProject, saveProjectState, editorAreaRef, scale, translate }); // Pass scale/translate
+
+  // Node Dragging Logic
+  const { handleNodeMouseDown } = useNodeDragging({
+    currentProject,
+    setCurrentProject,
+    editorAreaRef, // This should be the ref of the element whose getBoundingClientRect() is used for mouse coords
+    setSelectedNodeState,
+    setIsNodeModalOpen,
+    deleteActionInitiated,
+    setDeleteActionInitiated,
+    scale, // Pass scale
+    translate, // Pass translate
+  });
+
+  // Workflow Execution Logic
+  const {
+    isWorkflowRunning,
+    executionLogs,
+    currentExecutingNodeId,
+    runStartTime,
+    runEndTime,
+    totalTokensThisRun,
+    isExecutionPanelOpen,
+    setIsExecutionPanelOpen,
+    runWorkflow: executeWorkflowFromHook, 
+    handleStopWorkflow,
+  } = useWorkflowExecution({ currentProject, saveProjectState, setCurrentProject, hasUnsavedChanges });
+
+
+  // Visual Links
+  const validNodesOnCanvas = useMemo(() => getValidNodes(currentProject?.nodes), [currentProject?.nodes]);
+  const { visualLinks, getLineToRectangleIntersectionPoint } = useVisualLinks(validNodesOnCanvas);
+
+  // Panning and Zooming Handlers
+  const handleWheelOnCanvas = useCallback((e: React.WheelEvent) => {
+    if (!editorAreaRef.current) return;
+    e.preventDefault();
+    const delta = e.deltaY * ZOOM_SENSITIVITY * -1; // Invert deltaY for natural zoom
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale + delta));
     
-    let nodeName = INITIAL_NODE_NAME;
-    let nodePrompt = INITIAL_NODE_PROMPT;
-    if (type === NodeType.START) nodePrompt = INITIAL_START_NODE_PROMPT;
-    if (type === NodeType.CONCLUSION) nodePrompt = INITIAL_CONCLUSION_NODE_TITLE;
-    if (type === NodeType.VARIABLE) {
-        nodeName = INITIAL_VARIABLE_NODE_NAME;
-        nodePrompt = ''; 
+    const rect = editorAreaRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left; // Mouse position relative to editor viewport
+    const mouseY = e.clientY - rect.top;
+
+    // Point on canvas before zoom: (mouseX - translateX) / oldScale
+    // Point on canvas after zoom: (mouseX - newTranslateX) / newScale
+    // These must be equal for zooming towards mouse.
+    // newTranslateX = mouseX - (mouseX - translateX) * (newScale / oldScale)
+    // newTranslateY = mouseY - (mouseY - translateY) * (newScale / oldScale)
+
+    setTranslate(prevTranslate => ({
+      x: mouseX - (mouseX - prevTranslate.x) * (newScale / scale),
+      y: mouseY - (mouseY - prevTranslate.y) * (newScale / scale),
+    }));
+    setScale(newScale);
+  }, [scale, translate.x, translate.y]);
+
+  const handleMouseDownOnCanvas = useCallback((e: React.MouseEvent) => {
+    // Only pan if clicking directly on the canvas background, not on a node or other element.
+    if (e.target === editorAreaRef.current || e.target === canvasContentRef.current) {
+      setIsPanning(true);
+      setPanStartPoint({ x: e.clientX - translate.x, y: e.clientY - translate.y });
+      if (editorAreaRef.current) editorAreaRef.current.style.cursor = 'grabbing';
     }
+  }, [translate.x, translate.y]);
+  
+  const handleMouseMoveOnCanvas = useCallback((e: React.MouseEvent) => {
+    if (isPanning) {
+      setTranslate({ x: e.clientX - panStartPoint.x, y: e.clientY - panStartPoint.y });
+    }
+  }, [isPanning, panStartPoint.x, panStartPoint.y]);
+
+  const handleMouseUpOnCanvas = useCallback(() => {
+    if (isPanning) {
+      setIsPanning(false);
+      if (editorAreaRef.current) editorAreaRef.current.style.cursor = 'grab';
+    }
+  }, [isPanning]);
+
+  useEffect(() => {
+    const editorElement = editorAreaRef.current;
+    if (isPanning && editorElement) {
+      document.addEventListener('mousemove', handleMouseMoveOnCanvas as any);
+      document.addEventListener('mouseup', handleMouseUpOnCanvas as any);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMoveOnCanvas as any);
+        document.removeEventListener('mouseup', handleMouseUpOnCanvas as any);
+        if (editorElement) editorElement.style.cursor = 'grab';
+      };
+    } else if (editorElement) {
+        editorElement.style.cursor = 'grab';
+    }
+  }, [isPanning, handleMouseMoveOnCanvas, handleMouseUpOnCanvas]);
 
 
-    const newNode: Node = {
-      id: generateId(),
-      type,
-      name: nodeName, 
-      prompt: nodePrompt, 
-      position: { 
-        x: Math.max(0, Math.min(Math.random() * editorWidth * 0.7, editorWidth - NODE_WIDTH)), 
-        y: Math.max(0, Math.min(Math.random() * editorHeight * 0.7, editorHeight - NODE_HEIGHT))
-      },
-      branches: type === NodeType.CONDITIONAL ? [{id: generateId(), condition: "default", nextNodeId: null}] : undefined,
-      nextNodeId: (type === NodeType.PROMPT || type === NodeType.START || type === NodeType.VARIABLE) ? null : undefined,
-    };
-    const updatedProject = { ...currentProject, nodes: [...getValidNodes(currentProject.nodes), newNode] };
-    setCurrentProject(updatedProject);
-    setHasUnsavedChanges(true); 
-  };
+  const zoomIn = useCallback(() => {
+    const newScale = Math.min(MAX_SCALE, scale * 1.2);
+    if (editorAreaRef.current) {
+        const rect = editorAreaRef.current.getBoundingClientRect();
+        const viewportCenterX = rect.width / 2;
+        const viewportCenterY = rect.height / 2;
+        setTranslate(prevTranslate => ({
+            x: viewportCenterX - (viewportCenterX - prevTranslate.x) * (newScale / scale),
+            y: viewportCenterY - (viewportCenterY - prevTranslate.y) * (newScale / scale),
+        }));
+    }
+    setScale(newScale);
+  }, [scale]);
 
-  const handleSaveNode = (updatedNode: Node) => {
+  const zoomOut = useCallback(() => {
+    const newScale = Math.max(MIN_SCALE, scale / 1.2);
+     if (editorAreaRef.current) {
+        const rect = editorAreaRef.current.getBoundingClientRect();
+        const viewportCenterX = rect.width / 2;
+        const viewportCenterY = rect.height / 2;
+        setTranslate(prevTranslate => ({
+            x: viewportCenterX - (viewportCenterX - prevTranslate.x) * (newScale / scale),
+            y: viewportCenterY - (viewportCenterY - prevTranslate.y) * (newScale / scale),
+        }));
+    }
+    setScale(newScale);
+  }, [scale]);
+
+  const resetZoom = useCallback(() => {
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+  }, []);
+
+
+  const handleRunWorkflow = async () => {
     if (!currentProject) return;
-    const validNodes = getValidNodes(currentProject.nodes);
-    const newNodes = validNodes.map(n => n.id === updatedNode.id ? updatedNode : n);
-    const updatedProject = { ...currentProject, nodes: newNodes };
-    saveProjectState(updatedProject); 
-    setIsNodeModalOpen(false);
-    setSelectedNodeState(null);
+    try {
+      await executeWorkflowFromHook();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.toLowerCase().includes("gemini api error: api key issue")) {
+            openLlmErrorModal(
+                <>
+                    <strong>Gemini API Key Error:</strong> The API key may be missing, invalid, or lacks permissions.
+                    Please check your Gemini API Key in "Application Settings".
+                    <p className="text-xs mt-2">Original error: {errorMessage.replace("Gemini API Error: API key issue. ", "")}</p>
+                </>
+            );
+        } else if (errorMessage.toLowerCase().includes("ollama")) {
+             openLlmErrorModal(
+                <>
+                    <strong>Ollama Error:</strong> {errorMessage.replace("Ollama API Error:", "").replace("Ollama Network Error:", "")}
+                    <p className="text-xs mt-2">Please check your Ollama server status and settings in "App Settings".</p>
+                </>
+            );
+        } else {
+            openLlmErrorModal(`An unexpected LLM error occurred: ${errorMessage}`);
+        }
+    }
   };
-
-  const handleSaveProjectSettings = (settings: Pick<Project, 'name' | 'description' | 'author'>) => {
+  
+  const handleSaveProjectSettingsAndCloseModal = (settings: Pick<Project, 'name' | 'description' | 'author'>) => {
     if (!currentProject) return;
     const updatedProject = { ...currentProject, ...settings };
     saveProjectState(updatedProject); 
-    setIsProjectSettingsModalOpen(false);
-  };
-  
-  const handleNodeMouseDown = (nodeId: string, e: React.MouseEvent) => {
-    if (deleteActionInitiated) return;
-    if (!currentProject || !editorAreaRef.current) return;
-    const node = getValidNodes(currentProject.nodes).find(n => n.id === nodeId);
-    if (!node) return;
-
-    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
-    isActuallyDraggingRef.current = false;
-
-    const editorRect = editorAreaRef.current.getBoundingClientRect();
-    const offsetX = e.clientX - editorRect.left - node.position.x;
-    const offsetY = e.clientY - editorRect.top - node.position.y;
-    
-    setDraggingNode({ id: nodeId, offset: { x: offsetX, y: offsetY } });
-    (e.currentTarget as HTMLElement).classList.add('dragging');
-    e.preventDefault();
-  };
-
-  const handleNodeDrag = useCallback((e: MouseEvent) => {
-    if (!draggingNode || !currentProject || !editorAreaRef.current) return;
-
-    if (!isActuallyDraggingRef.current && dragStartPosRef.current) {
-        const dx = e.clientX - dragStartPosRef.current.x;
-        const dy = e.clientY - dragStartPosRef.current.y;
-        if (Math.sqrt(dx * dx + dy * dy) > MAX_CLICK_MOVEMENT) {
-            isActuallyDraggingRef.current = true;
-        }
-    }
-    
-    if (isActuallyDraggingRef.current) { 
-        const editorRect = editorAreaRef.current.getBoundingClientRect();
-        let newX = e.clientX - editorRect.left - draggingNode.offset.x;
-        let newY = e.clientY - editorRect.top - draggingNode.offset.y;
-
-        newX = Math.round(newX / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-        newY = Math.round(newY / GRID_CELL_SIZE) * GRID_CELL_SIZE;
-
-        newX = Math.max(0, Math.min(newX, editorRect.width - NODE_WIDTH));
-        newY = Math.max(0, Math.min(newY, editorRect.height - NODE_HEIGHT));
-
-        setCurrentProject(prev => {
-          if (!prev) return null;
-          const validPrevNodes = getValidNodes(prev.nodes);
-          const originalNode = validPrevNodes.find(n => n.id === draggingNode.id);
-          if (originalNode && (originalNode.position.x !== newX || originalNode.position.y !== newY)) {
-            setHasUnsavedChanges(true); 
-          }
-          const updatedNodes = validPrevNodes.map(n => 
-            n.id === draggingNode.id ? { ...n, position: { x: newX, y: newY } } : n
-          );
-          return { ...prev, nodes: updatedNodes };
-        });
-    }
-  }, [draggingNode, currentProject]); 
-
-  const handleNodeDragEnd = useCallback(() => {
-    if (!draggingNode || !currentProject) return;
-
-    const nodeElement = document.querySelector(`.node-${draggingNode.id}`);
-    if(nodeElement) nodeElement.classList.remove('dragging');
-    
-    if (deleteActionInitiated) {
-        setDeleteActionInitiated(false); 
-        setDraggingNode(null);
-        dragStartPosRef.current = null;
-        isActuallyDraggingRef.current = false;
-        return; 
-    }
-    
-    if (!isActuallyDraggingRef.current) { 
-        const clickedNode = getValidNodes(currentProject.nodes).find(n => n.id === draggingNode.id);
-        if (clickedNode) {
-            setSelectedNodeState(clickedNode);
-            setIsNodeModalOpen(true);
-        }
-    }
-    
-    setDraggingNode(null); 
-    dragStartPosRef.current = null;
-    isActuallyDraggingRef.current = false;
-  }, [draggingNode, currentProject, deleteActionInitiated]);
-
-
-  useEffect(() => {
-    if (draggingNode) {
-      document.addEventListener('mousemove', handleNodeDrag);
-      document.addEventListener('mouseup', handleNodeDragEnd);
-    } else {
-      document.removeEventListener('mousemove', handleNodeDrag);
-      document.removeEventListener('mouseup', handleNodeDragEnd);
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleNodeDrag);
-      document.removeEventListener('mouseup', handleNodeDragEnd);
-    };
-  }, [draggingNode, handleNodeDrag, handleNodeDragEnd]);
-  
-  const confirmDeleteNode = () => {
-    if (!currentProject || !deleteNodeConfirm.nodeId) return;
-    
-    let validNodes = getValidNodes(currentProject.nodes);
-    let updatedNodes = validNodes.filter(n => n.id !== deleteNodeConfirm.nodeId);
-    
-    updatedNodes = updatedNodes.map(n => {
-        let modified = false;
-        const newNodeData = { ...n }; 
-        if (newNodeData.nextNodeId === deleteNodeConfirm.nodeId) {
-            newNodeData.nextNodeId = null;
-            modified = true;
-        }
-        if (newNodeData.branches) {
-            const originalBranches = newNodeData.branches;
-            newNodeData.branches = newNodeData.branches.map(b => 
-                b.nextNodeId === deleteNodeConfirm.nodeId ? { ...b, nextNodeId: null } : b
-            );
-            if (JSON.stringify(originalBranches) !== JSON.stringify(newNodeData.branches)) modified = true;
-        }
-        return modified ? newNodeData : n; 
-    });
-    const updatedProject = { ...currentProject, nodes: updatedNodes };
-    setCurrentProject(updatedProject);
-    setHasUnsavedChanges(true); 
-  };
-
-  const handleDeleteNodeRequest = (nodeId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); 
-    if (!currentProject) return;
-    const nodeToDelete = getValidNodes(currentProject.nodes).find(n => n.id === nodeId);
-    if (!nodeToDelete) return;
-    setDeleteActionInitiated(true); 
-    setDeleteNodeConfirm({ isOpen: true, nodeId, nodeName: nodeToDelete.name || nodeToDelete.type });
-  };
-
-  const handleRequestCloseProject = () => {
-    if (isWorkflowRunning) return;
-
-    if (hasUnsavedChanges) {
-      setIsUnsavedChangesModalOpen(true);
-    } else {
-      navigate('/');
-    }
-  };
-
-  const handleSaveAndClose = () => {
-    if (currentProject) {
-      saveProjectState(currentProject); 
-    }
-    setIsUnsavedChangesModalOpen(false);
-    navigate('/');
-  };
-
-  const handleCloseWithoutSaving = () => {
-    setIsUnsavedChangesModalOpen(false);
-    navigate('/');
+    closeProjectSettingsModal();
   };
 
 
-  const handleStopWorkflow = () => {
-    isStopRequestedRef.current = true;
-  };
-
-  const runWorkflow = async () => {
-    if (!currentProject || isWorkflowRunning) return;
-    
-    const initialValidNodes = getValidNodes(currentProject.nodes);
-    if (initialValidNodes.length === 0 && currentProject.nodes.length > 0) {
-        console.error("Workflow run aborted: Project contains only invalid node data before cloning.");
-        return;
-    }
-
-    const needsApiCall = initialValidNodes.some(n => 
-        n.type === NodeType.PROMPT || n.type === NodeType.CONDITIONAL || n.type === NodeType.START
-    );
-    if (!appSettings.apiKey && needsApiCall) {
-        setApiKeyMissingModalOpen(true);
-        return;
-    }
-
-    setIsWorkflowRunning(true);
-    isStopRequestedRef.current = false;
-    
-    if (hasUnsavedChanges) {
-        saveProjectState(currentProject, true); 
-    }
-
-    setExecutionLogs([]);
-    setCurrentExecutingNodeId(null);
-    const startTime = Date.now();
-    setRunStartTime(startTime);
-    setRunEndTime(null);
-    setTotalTokensThisRun(0);
-    setIsExecutionPanelOpen(true); 
-
-    let tempCurrentProject = deepClone(currentProject); 
-    
-    tempCurrentProject.nodes = getValidNodes(tempCurrentProject.nodes).map(n => ({ 
-        ...n, 
-        isRunning: false, 
-        hasError: false, 
-        lastRunOutput: undefined 
-    }));
-
-    const nodesForLogic: Node[] = tempCurrentProject.nodes.filter((n): n is Node => {
-        if (n === null || n === undefined) {
-            console.warn("CRITICAL WARNING: Null/undefined node found in tempCurrentProject.nodes AFTER initial mapping. This indicates a deeper issue.", tempCurrentProject.nodes);
-            return false;
-        }
-        if (typeof n.type !== 'string' || typeof n.id !== 'string' || !Object.values(NodeType).includes(n.type as NodeType)) { 
-            console.warn("CRITICAL WARNING: Node with invalid structure or type found AFTER initial mapping:", n, tempCurrentProject.nodes);
-            return false;
-        }
-        return true;
-    });
-
-    if (nodesForLogic.length === 0 && tempCurrentProject.nodes.length > 0) {
-        console.error("Workflow run aborted: Project contains no structurally valid nodes after detailed filtering for logic loop.");
-        setIsWorkflowRunning(false);
-        setRunStartTime(null); // Reset run time if aborted early
-        return;
-    }
-    tempCurrentProject.nodes = nodesForLogic; 
-
-    setCurrentProject(prev => {
-      if (!prev) return null;
-      const uiNodesReset = getValidNodes(prev.nodes).map(n => ({...n, isRunning: false, hasError: false, lastRunOutput: undefined}));
-      return {...prev, nodes: uiNodesReset };
-    });
-
-
-    const currentRun: ProjectRun = {
-      id: generateId(),
-      timestamp: new Date().toISOString(),
-      status: 'running',
-      steps: [],
-      totalTokensUsed: 0,
-    };
-    
-    tempCurrentProject.runHistory = [currentRun, ...(tempCurrentProject.runHistory || [])].slice(0, MAX_RUN_HISTORY);
-
-    let currentNode: Node | null | undefined = tempCurrentProject.nodes.find(n => n.type === NodeType.START);
-    let previousOutput: string | undefined = undefined;
-    let accumulatedTokens = 0;
-    const workflowVariables: { [key: string]: string } = {};
-
-    while (currentNode) {
-      if (isStopRequestedRef.current) {
-        currentRun.status = 'stopped';
-        currentRun.error = 'Manually stopped by user.';
-        setExecutionLogs(prevLogs => prevLogs.map(log => log.status === 'running' ? {...log, status: 'skipped', endTime: new Date().toISOString()} : log));
-        break; 
-      }
-
-      const activeNodeId = currentNode.id;
-      setCurrentExecutingNodeId(activeNodeId); 
-      const nodeLogEntry: NodeExecutionLog = { 
-          nodeId: activeNodeId, 
-          nodeName: currentNode.name || currentNode.type, 
-          startTime: new Date().toISOString(), 
-          status: 'running' 
-      };
-      setExecutionLogs(prevLogs => [...prevLogs, nodeLogEntry]);
-      
-      setCurrentProject(prev => {
-          if(!prev) return null;
-          const validPrevNodes = getValidNodes(prev.nodes);
-          const updatedNodes = validPrevNodes.map(n => n.id === activeNodeId ? { ...n, isRunning: true, hasError: false } : {...n, isRunning: false});
-          return {...prev, nodes: updatedNodes};
-      });
-      
-      let promptForLLM = currentNode.prompt;
-      let stepPromptSent = currentNode.prompt; 
-
-      if (currentNode.type === NodeType.START || currentNode.type === NodeType.PROMPT || currentNode.type === NodeType.CONDITIONAL) {
-        let tempPrompt = currentNode.prompt;
-        for (const [varName, varValue] of Object.entries(workflowVariables)) {
-          const safeVarName = varName.replace(/[^a-zA-Z0-9_]/g, '');
-          if (safeVarName) { 
-            tempPrompt = tempPrompt.replace(new RegExp(`\\{${safeVarName}\\}`, 'gi'), varValue);
-          }
-        }
-        promptForLLM = tempPrompt.replace(/{PREVIOUS_OUTPUT}/gi, previousOutput || '');
-        stepPromptSent = promptForLLM; 
-      }
-
-
-      if (currentNode.type === NodeType.CONCLUSION) {
-        stepPromptSent = `Displaying output for: ${currentNode.name || 'Conclusion'}`; 
-      } else if (currentNode.type === NodeType.VARIABLE) {
-        stepPromptSent = `Storing input as '${currentNode.name}'`;
-      }
-
-
-      const step: RunStep = {
-        nodeId: currentNode.id,
-        nodeName: currentNode.name,
-        promptSent: stepPromptSent,
-        responseReceived: '',
-        timestamp: new Date().toISOString(),
-      };
-
-      try {
-        let resultText: string;
-        let usageData: GeminiExecutePromptResponse['usageMetadata'] = undefined;
-        let currentStepTokens: number | undefined = undefined;
-
-        if (currentNode.type === NodeType.START || currentNode.type === NodeType.PROMPT || currentNode.type === NodeType.CONDITIONAL) {
-            if (!appSettings.apiKey) throw new Error("Gemini API Key is not configured.");
-            const result: GeminiExecutePromptResponse = await executePrompt(promptForLLM, appSettings);
-            resultText = result.text;
-            usageData = result.usageMetadata;
-        } else if (currentNode.type === NodeType.CONCLUSION) {
-            resultText = previousOutput || '(No input to display)';
-        } else if (currentNode.type === NodeType.VARIABLE) {
-            resultText = previousOutput || ''; 
-            workflowVariables[currentNode.name.replace(/[^a-zA-Z0-9_]/g, '')] = resultText; 
-            step.responseReceived = resultText; 
-        } else {
-            // This case should ideally not be reached if nodesForLogic filtering is correct
-            throw new Error(`Unknown or invalid node type encountered: ${ (currentNode as any)?.type }`);
-        }
-        
-        if (usageData && typeof usageData.totalTokenCount === 'number') {
-            currentStepTokens = usageData.totalTokenCount;
-            accumulatedTokens += currentStepTokens;
-        }
-        step.tokensUsed = currentStepTokens;
-        step.responseReceived = resultText;
-
-        previousOutput = resultText; 
-        
-        const nodeInTemp = tempCurrentProject.nodes.find(n => n.id === activeNodeId);
-        if (nodeInTemp) nodeInTemp.lastRunOutput = resultText;
-        
-        setExecutionLogs(prevLogs => prevLogs.map(log => log.nodeId === activeNodeId && log.status === 'running' ? 
-            {...log, endTime: new Date().toISOString(), status: currentNode?.type === NodeType.VARIABLE ? 'variable_set' : 'completed', output: resultText, tokensUsed: step.tokensUsed} : log
-        ));
-        
-        currentRun.steps.push(step);
-        setCurrentProject(prev => {
-            if(!prev) return null;
-            const validPrevNodes = getValidNodes(prev.nodes);
-            const updatedNodes = validPrevNodes.map(n => n.id === activeNodeId ? { ...n, isRunning: false, lastRunOutput: resultText, hasError: false } : n);
-            return {...prev, nodes: updatedNodes};
-        });
-
-        if (currentNode.type === NodeType.CONCLUSION) {
-            currentNode = null; 
-        } else if (currentNode.type === NodeType.CONDITIONAL && currentNode.branches) {
-          let nextNodeIdFound: string | null = null;
-          const lcResponse = resultText.toLowerCase();
-          for (const branch of currentNode.branches) {
-            const lcCondition = branch.condition.toLowerCase();
-            let match = false;
-            if (lcCondition.startsWith("contains '") && lcCondition.endsWith("'")) {
-                match = lcResponse.includes(lcCondition.substring(10, lcCondition.length -1));
-            } else if (lcCondition.startsWith("starts with '") && lcCondition.endsWith("'")) {
-                match = lcResponse.startsWith(lcCondition.substring(13, lcCondition.length -1));
-            } else if (lcCondition === "default" || lcCondition === "") { 
-                match = true; 
-            } else { 
-                match = lcResponse === lcCondition;
-            }
-            if (match) {
-              nextNodeIdFound = branch.nextNodeId;
-              break;
-            }
-          }
-          if (!nextNodeIdFound && currentNode.branches.some(b => b.condition.toLowerCase() === "default" || b.condition === "")) {
-             const defaultBranch = currentNode.branches.find(b => b.condition.toLowerCase() === "default" || b.condition === "");
-             if (defaultBranch) nextNodeIdFound = defaultBranch.nextNodeId;
-          }
-          currentNode = tempCurrentProject.nodes.find(n => n.id === nextNodeIdFound) || null;
-
-        } else { 
-          currentNode = tempCurrentProject.nodes.find(n => n.id === currentNode?.nextNodeId) || null;
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        step.error = errorMessage;
-        step.responseReceived = 'ERROR';
-        currentRun.steps.push(step);
-        currentRun.status = 'failed';
-        currentRun.error = errorMessage;
-
-        const nodeInTemp = tempCurrentProject.nodes.find(n => n.id === activeNodeId);
-        if (nodeInTemp) nodeInTemp.lastRunOutput = errorMessage;
-
-        setExecutionLogs(prevLogs => prevLogs.map(log => log.nodeId === activeNodeId && log.status === 'running' ? 
-            {...log, endTime: new Date().toISOString(), status: 'failed', error: errorMessage} : log
-        ));
-         setCurrentProject(prev => {
-            if(!prev) return null;
-            const validPrevNodes = getValidNodes(prev.nodes);
-            const updatedNodes = validPrevNodes.map(n => n.id === activeNodeId ? { ...n, isRunning: false, hasError: true, lastRunOutput: errorMessage } : n);
-            return {...prev, nodes: updatedNodes};
-        });
-        currentNode = null; 
-        break; 
-      }
-    } 
-
-    if (isStopRequestedRef.current) { 
-        // currentRun.status is already 'stopped'
-    } else if (currentRun.status === 'running') { // If loop completed naturally and not stopped by error
-        currentRun.status = 'completed';
-    }
-    // If loop exited due to error, currentRun.status is already 'failed'
-
-    currentRun.finalOutput = previousOutput; 
-    currentRun.totalTokensUsed = accumulatedTokens;
-    const runEndTimeActual = Date.now();
-    currentRun.durationMs = runEndTimeActual - (startTime || runEndTimeActual); 
-    
-    setRunEndTime(runEndTimeActual);
-    setTotalTokensThisRun(accumulatedTokens);
-    setCurrentExecutingNodeId(null); 
-    
-    const finalProjectStateForSave = {
-      ...tempCurrentProject,
-      nodes: getValidNodes(tempCurrentProject.nodes) 
-    };
-    saveProjectState(finalProjectStateForSave);
-
-    setIsWorkflowRunning(false);
-    isStopRequestedRef.current = false;
-  };
-
+  if (isLoading) {
+    return <div className="p-4 text-center text-slate-300 h-screen flex flex-col justify-center items-center bg-slate-900">Loading project...</div>;
+  }
 
   if (!currentProject) {
-    return <div className="p-4 text-center text-slate-300 h-screen flex flex-col justify-center items-center bg-slate-900">Loading project or project not found... <RouterLink to="/" className="text-sky-400 hover:text-sky-300 mt-2">Go Home</RouterLink></div>;
+    return <div className="p-4 text-center text-slate-300 h-screen flex flex-col justify-center items-center bg-slate-900">Project not found. <RouterLink to="/" className="text-sky-400 hover:text-sky-300 mt-2">Go Home</RouterLink></div>;
   }
-  
-  const validNodesOnCanvas = Array.isArray(currentProject?.nodes) 
-    ? currentProject.nodes.filter((n): n is Node => {
-        const isValid = n !== null && n !== undefined;
-        // Optional: more detailed logging for debugging if needed in future
-        // if (!isValid) {
-        //   console.warn("Filtering out null/undefined node during validNodesOnCanvas creation:", n);
-        // } else if (typeof n.type !== 'string' || !Object.values(NodeType).includes(n.type as NodeType)) {
-        //   console.warn("Filtering out node with invalid/unexpected type during validNodesOnCanvas creation:", n, "Expected one of:", Object.values(NodeType));
-        //    return false; 
-        // }
-        return isValid;
-      })
-    : [];
 
   const getNodeById = (id: string): Node | undefined => validNodesOnCanvas.find(n => n.id === id);
 
-  const getLineToRectangleIntersectionPoint = (
-    lineP1: { x: number; y: number }, 
-    lineP2: { x: number; y: number }, 
-    rect: { x: number; y: number; width: number; height: number }
-  ): { x: number; y: number } => {
-    const { x: rectX, y: rectY, width: rectW, height: rectH } = rect;
-    const sides = [
-      { p3: { x: rectX, y: rectY }, p4: { x: rectX + rectW, y: rectY } }, 
-      { p3: { x: rectX + rectW, y: rectY }, p4: { x: rectX + rectW, y: rectY + rectH } }, 
-      { p3: { x: rectX, y: rectY + rectH }, p4: { x: rectX + rectW, y: rectY + rectH } }, 
-      { p3: { x: rectX, y: rectY }, p4: { x: rectX, y: rectY + rectH } }, 
-    ];
-    let closestIntersection = lineP2; 
-    let minT = Infinity; 
-    for (const side of sides) {
-      const { p3, p4 } = side; 
-      const den = (lineP1.x - lineP2.x) * (p3.y - p4.y) - (lineP1.y - lineP2.y) * (p3.x - p4.x);
-      if (den === 0) continue; 
-      const tNum = (lineP1.x - p3.x) * (p3.y - p4.y) - (lineP1.y - p3.y) * (p3.x - p4.x);
-      const uNum = -((lineP1.x - lineP2.x) * (lineP1.y - p3.y) - (lineP1.y - lineP2.y) * (lineP1.x - p3.x));
-      const t = tNum / den; 
-      const u = uNum / den; 
-      if (u >= 0 && u <= 1 && t >= 0 && t <= 1) { 
-        if (t < minT) {
-            minT = t;
-            closestIntersection = { 
-                x: lineP1.x + t * (lineP2.x - lineP1.x), 
-                y: lineP1.y + t * (lineP2.y - lineP1.y) 
-            };
-        }
-      }
-    }
-    return closestIntersection;
-  };
-
-
   return (
     <div className="flex h-screen flex-col">
-      <Header 
-        onRunProject={runWorkflow} 
+      <Header
+        onRunProject={handleRunWorkflow}
         onStopProject={handleStopWorkflow}
-        currentProjectName={currentProject.name} 
+        currentProjectName={currentProject.name}
         isWorkflowRunning={isWorkflowRunning}
       />
-      <div className="flex flex-1 overflow-hidden pb-12"> 
+      <div className="flex flex-1 overflow-hidden pb-12"> {/* pb-12 for ExecutionStatusPanel */}
         <aside className="w-60 sm:w-64 bg-slate-800 p-3 sm:p-4 space-y-3 overflow-y-auto custom-scroll shadow-lg flex flex-col">
           <div>
             <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-3">Node Tools</h3>
@@ -678,23 +270,23 @@ const ProjectEditorPage: React.FC = () => {
             <button onClick={() => handleAddNode(NodeType.CONDITIONAL)} className="w-full rounded bg-amber-600 px-3 py-2 text-sm text-white hover:bg-amber-700 mt-2">Add Conditional Node</button>
             <button onClick={() => handleAddNode(NodeType.VARIABLE)} className="w-full rounded bg-teal-600 px-3 py-2 text-sm text-white hover:bg-teal-700 mt-2">Add Variable Node</button>
             <button onClick={() => handleAddNode(NodeType.CONCLUSION)} className="w-full rounded bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 mt-2">Add Conclusion Node</button>
-            
-            <hr className="border-slate-700 my-4"/>
+
+            <hr className="border-slate-700 my-4" />
             <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-3">Project Actions</h3>
-            <button onClick={() => setIsProjectSettingsModalOpen(true)} className="w-full rounded bg-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-600">Project Settings</button>
-            <button onClick={() => setIsRunHistoryModalOpen(true)} className="w-full rounded bg-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-600 mt-2">View Run History ({currentProject.runHistory.length})</button>
+            <button onClick={openProjectSettingsModal} className="w-full rounded bg-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-600">Project Settings</button>
+            <button onClick={openRunHistoryModal} className="w-full rounded bg-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-600 mt-2">View Run History ({currentProject.runHistory.length})</button>
           </div>
-          
-           <div className="mt-auto pt-4 space-y-2"> 
-            <button 
-              onClick={handleRequestCloseProject} 
+
+          <div className="mt-auto pt-4 space-y-2">
+            <button
+              onClick={() => handleRequestCloseProject(isWorkflowRunning)}
               disabled={isWorkflowRunning}
               className="w-full rounded bg-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-500 flex items-center justify-center disabled:bg-slate-500 disabled:cursor-not-allowed"
             >
               <i className="fas fa-times-circle mr-2"></i>Close Project
             </button>
-            <button 
-              onClick={() => setIsHelpModalOpen(true)} 
+            <button
+              onClick={openHelpModal}
               className="w-full rounded bg-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-500 flex items-center justify-center"
             >
               <i className="fas fa-question-circle mr-2"></i>Help
@@ -702,173 +294,222 @@ const ProjectEditorPage: React.FC = () => {
           </div>
         </aside>
 
-        <main ref={editorAreaRef} className="flex-1 bg-slate-850 p-4 relative overflow-auto custom-scroll" style={{ backgroundImage: `radial-gradient(${getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-slate-700') || '#374151'} 1px, transparent 1px)`, backgroundSize: `${GRID_CELL_SIZE}px ${GRID_CELL_SIZE}px`}}>
-          {validNodesOnCanvas.map(node => {
-             if (!node || typeof node.type !== 'string' || !Object.values(NodeType).includes(node.type as NodeType)) {
-                console.error("ProjectEditorPage: Encountered invalid node data during render. Node object:", JSON.stringify(node));
-                return (
-                  <div 
-                    key={node?.id || `invalid-node-${Math.random().toString(36).substr(2, 9)}`} 
-                    className="absolute rounded-lg shadow-xl p-3 border-2 border-red-700 bg-red-900 text-white flex flex-col justify-center items-center text-xs"
-                    style={{ 
-                      left: node?.position?.x || 0, 
-                      top: node?.position?.y || 0, 
-                      width: NODE_WIDTH, 
-                      height: NODE_HEIGHT,
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <p className="font-bold mb-1">Error: Invalid Node</p>
-                    <p>ID: {node?.id || 'Unknown'}</p>
-                    <p>Type: {node?.type || 'Unknown'}</p>
-                  </div>
-                );
-             }
-             const nodeBaseColorClass = NODE_COLORS[node.type] || NODE_COLORS.PROMPT; 
-             const borderColorClass = node.isRunning ? 'border-purple-500 animate-pulse' : (node.hasError ? 'border-red-500' : 'border-transparent');
-             const finalNodeClass = `${nodeBaseColorClass} ${borderColorClass}`;
-            return (
-            <div
-              key={node.id}
-              className={`node-${node.id} absolute rounded-lg shadow-xl p-3 border-2 
-                ${finalNodeClass} 
-                transition-all duration-150 cursor-grab flex flex-col justify-between items-center`}
-              style={{ left: node.position.x, top: node.position.y, width: NODE_WIDTH, height: NODE_HEIGHT }}
-              onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
-              title={node.type === NodeType.CONCLUSION ? node.lastRunOutput || 'Conclusion node displays output here.' : (node.type === NodeType.VARIABLE ? `Variable: ${node.name}. Value: ${node.lastRunOutput || '(not set)'}` : node.prompt || 'Node has no prompt yet.')}
-
-            >
-              <div className="w-full">
-                <div className="flex justify-between items-start w-full">
-                  <h4 className="font-bold text-sm text-white mb-1 truncate max-w-[calc(100%-20px)]">{node.name || `(${node.type.toLowerCase()} node)`}</h4>
-                  {node.type !== NodeType.START && 
-                    <button 
-                        onClick={(e) => handleDeleteNodeRequest(node.id, e)} 
-                        className="text-red-300 hover:text-red-100 text-xs p-0.5 rounded-full hover:bg-red-500/50 absolute top-1 right-1 z-10"
-                        aria-label={`Delete node ${node.name || node.type}`}
+        <main 
+            ref={editorAreaRef} 
+            className="flex-1 bg-slate-850 p-0 relative overflow-hidden custom-scroll" /* p-0 to let content fill */
+            style={{ 
+                backgroundImage: `radial-gradient(${getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-slate-700') || '#374151'} 1px, transparent 1px)`, 
+                backgroundSize: `${GRID_CELL_SIZE}px ${GRID_CELL_SIZE}px`,
+                cursor: 'grab' // Default cursor for panning
+            }}
+            onWheel={handleWheelOnCanvas}
+            onMouseDown={handleMouseDownOnCanvas} // Pan initiated here
+            // onMouseMove and onMouseUp are global if isPanning is true for better UX
+        >
+          <div 
+            ref={canvasContentRef}
+            className="absolute top-0 left-0" // Content starts at origin
+            style={{ 
+                transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+                transformOrigin: '0 0', // Crucial for zooming towards top-left
+                // width: '100%', height: '100%' // Not needed, let content define size
+            }}
+          >
+            {validNodesOnCanvas.map(node => {
+                if (!node || typeof node.type !== 'string' || !Object.values(NodeType).includes(node.type as NodeType)) {
+                    return (
+                    <div
+                        key={node?.id || `invalid-node-${Math.random().toString(36).substr(2, 9)}`}
+                        className="absolute rounded-lg shadow-xl p-3 border-2 border-red-700 bg-red-900 text-white flex flex-col justify-center items-center text-xs"
+                        style={{ left: node?.position?.x || 0, top: node?.position?.y || 0, width: NODE_WIDTH, height: NODE_HEIGHT, boxSizing: 'border-box'}}
                     >
-                        <i className="fas fa-times"></i>
-                    </button>
-                  }
+                        <p className="font-bold mb-1">Error: Invalid Node</p>
+                    </div>
+                    );
+                }
+                const nodeBaseColorClass = NODE_COLORS[node.type] || NODE_COLORS.PROMPT;
+                const borderColorClass = node.isRunning ? 'border-purple-500 animate-pulse' : (node.hasError ? 'border-red-500' : 'border-transparent');
+                const finalNodeClass = `${nodeBaseColorClass} ${borderColorClass}`;
+                return (
+                <div
+                key={node.id}
+                className={`node-${node.id} absolute rounded-lg shadow-xl p-3 border-2 ${finalNodeClass} transition-all duration-150 cursor-grab flex flex-col justify-between items-center`}
+                style={{ left: node.position.x, top: node.position.y, width: NODE_WIDTH, height: NODE_HEIGHT }}
+                onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
+                title={node.type === NodeType.CONCLUSION ? node.lastRunOutput || 'Conclusion node displays output here.' : (node.type === NodeType.VARIABLE ? `Variable: ${node.name}. Value: ${node.lastRunOutput || '(not set)'}` : node.prompt || 'Node has no prompt yet.')}
+                >
+                <div className="w-full">
+                    <div className="flex justify-between items-start w-full">
+                    <h4 className="font-bold text-sm text-white mb-1 truncate max-w-[calc(100%-20px)]">{node.name || `(${node.type.toLowerCase()} node)`}</h4>
+                    {node.type !== NodeType.START &&
+                        <button
+                            onClick={(e) => handleDeleteNodeRequest(node.id, e)}
+                            className="node-delete-button text-red-300 hover:text-red-100 text-xs p-0.5 rounded-full hover:bg-red-500/50 absolute top-1 right-1 z-10"
+                            aria-label={`Delete node ${node.name || node.type}`}
+                        >
+                            <i className="fas fa-times"></i>
+                        </button>
+                    }
+                    </div>
+                    {node.type === NodeType.CONCLUSION ? (
+                        <div className="text-xs text-slate-200 mb-1 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                            <p className="font-semibold italic">{node.prompt || INITIAL_CONCLUSION_NODE_TITLE}</p>
+                            {node.lastRunOutput ?
+                                <p className="mt-1 text-green-300">{node.lastRunOutput}</p> :
+                                <p className="mt-1 text-slate-400">(Awaiting output)</p>
+                            }
+                        </div>
+                    ) : node.type === NodeType.VARIABLE ? (
+                        <div className="text-xs text-slate-200 mb-1 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                            <p className="font-semibold italic">Stores as: {'{'+node.name+'}'}</p>
+                            {node.lastRunOutput ?
+                                <p className="mt-1 text-green-300">Last Value: {node.lastRunOutput}</p> :
+                                <p className="mt-1 text-slate-400">(No value captured yet)</p>
+                            }
+                        </div>
+                    ) : (
+                        <p className="text-xs text-slate-200 mb-1 h-10 overflow-y-auto custom-scroll line-clamp-3 w-full text-center px-1">{node.prompt || '(No prompt configured)'}</p>
+                    )}
                 </div>
-                {node.type === NodeType.CONCLUSION ? (
-                    <div className="text-xs text-slate-200 mb-1 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
-                        <p className="font-semibold italic">{node.prompt || INITIAL_CONCLUSION_NODE_TITLE}</p>
-                        {node.lastRunOutput ? 
-                            <p className="mt-1 text-green-300">{node.lastRunOutput}</p> : 
-                            <p className="mt-1 text-slate-400">(Awaiting output)</p>
-                        }
+                {(node.type !== NodeType.CONCLUSION && node.type !== NodeType.VARIABLE) && node.lastRunOutput && (
+                    <div className="mt-auto pt-1 border-t border-slate-500/50 w-full overflow-hidden">
+                        <p className={`text-xs ${node.hasError ? 'text-red-300' : 'text-green-300'} truncate text-center`}>Last Out: {node.lastRunOutput}</p>
                     </div>
-                ) : node.type === NodeType.VARIABLE ? (
-                     <div className="text-xs text-slate-200 mb-1 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
-                        <p className="font-semibold italic">Stores as: {'{'+node.name+'}'}</p>
-                        {node.lastRunOutput ? 
-                            <p className="mt-1 text-green-300">Last Value: {node.lastRunOutput}</p> : 
-                            <p className="mt-1 text-slate-400">(No value captured yet)</p>
-                        }
-                    </div>
-                ) : (
-                    <p className="text-xs text-slate-200 mb-1 h-10 overflow-y-auto custom-scroll line-clamp-3 w-full text-center px-1">{node.prompt || '(No prompt configured)'}</p>
                 )}
-              </div>
-              {(node.type !== NodeType.CONCLUSION && node.type !== NodeType.VARIABLE) && node.lastRunOutput && (
-                  <div className="mt-auto pt-1 border-t border-slate-500/50 w-full overflow-hidden"> {/* ADDED overflow-hidden HERE */}
-                    <p className={`text-xs ${node.hasError ? 'text-red-300' : 'text-green-300'} truncate text-center`}>Last Out: {node.lastRunOutput}</p>
-                  </div>
-              )}
-            </div>
-          );})}
+                </div>
+            );})}
 
-          <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" aria-hidden="true">
-            <defs>
-              <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9.5" refY="3.5" orient="auto" fill="#0EA5E9"> 
-                <polygon points="0 0, 10 3.5, 0 7" />
-              </marker>
-            </defs>
-            {visualLinks.map(link => {
-              const sourceNode = getNodeById(link.sourceId);
-              const targetNode = getNodeById(link.targetId);
-              if (!sourceNode || !targetNode) return null;
+            <svg 
+                className="absolute top-0 left-0 pointer-events-none" 
+                // The SVG needs to be large enough to contain all links.
+                // Since its parent (canvasContentRef) is transformed, its 100% width/height 
+                // might not cover the entire "world" if nodes are panned far.
+                // A very large fixed size or dynamically calculated size would be more robust.
+                // For now, assume nodes don't go extremely far, or links might get clipped.
+                // The 'absolute top-0 left-0' ensures its coordinate system aligns with canvasContentRef.
+                style={{ width: '10000px', height: '10000px' }} // Example large size
+                aria-hidden="true"
+            >
+                <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9.5" refY="3.5" orient="auto" fill="#0EA5E9">
+                    <polygon points="0 0, 10 3.5, 0 7" />
+                </marker>
+                </defs>
+                {visualLinks.map(link => {
+                const sourceNode = getNodeById(link.sourceId);
+                const targetNode = getNodeById(link.targetId);
+                if (!sourceNode || !targetNode) return null;
 
-              const sourceNodeRect = { x: sourceNode.position.x, y: sourceNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
-              const targetNodeRect = { x: targetNode.position.x, y: targetNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
-              
-              const sourceCenter = { x: sourceNode.position.x + NODE_WIDTH / 2, y: sourceNode.position.y + NODE_HEIGHT / 2 };
-              const targetCenter = { x: targetNode.position.x + NODE_WIDTH / 2, y: targetNode.position.y + NODE_HEIGHT / 2 };
+                const sourceNodeRect = { x: sourceNode.position.x, y: sourceNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
+                const targetNodeRect = { x: targetNode.position.x, y: targetNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
 
-              const startPoint = getLineToRectangleIntersectionPoint(targetCenter, sourceCenter, sourceNodeRect); 
-              const endPoint = getLineToRectangleIntersectionPoint(sourceCenter, targetCenter, targetNodeRect);   
-              
-              const dx = endPoint.x - startPoint.x;
-              const dy = endPoint.y - startPoint.y;
-              const curveFactor = 0.2; 
-              const midX = startPoint.x + dx * 0.5;
-              const midY = startPoint.y + dy * 0.5;
-              const normalX = -dy * curveFactor;
-              const normalY = dx * curveFactor;
-              const cpX = midX + normalX;
-              const cpY = midY + normalY;
+                const sourceCenter = { x: sourceNode.position.x + NODE_WIDTH / 2, y: sourceNode.position.y + NODE_HEIGHT / 2 };
+                const targetCenter = { x: targetNode.position.x + NODE_WIDTH / 2, y: targetNode.position.y + NODE_HEIGHT / 2 };
 
-              const path = `M ${startPoint.x},${startPoint.y} Q ${cpX},${cpY} ${endPoint.x},${endPoint.y}`;
+                const startPoint = getLineToRectangleIntersectionPoint(targetCenter, sourceCenter, sourceNodeRect);
+                const endPoint = getLineToRectangleIntersectionPoint(sourceCenter, targetCenter, targetNodeRect);
 
-              return (
-                <g key={link.id}>
-                  <path d={path} stroke="#0EA5E9" strokeWidth="2" fill="none" markerEnd="url(#arrowhead)" />
-                  {link.condition && (
-                    <text x={midX} y={midY - 8} fill="#94A3B8" fontSize="10px" textAnchor="middle" className="pointer-events-auto bg-slate-850 px-1 rounded">
-                      {link.condition}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
+                const dx = endPoint.x - startPoint.x;
+                const dy = endPoint.y - startPoint.y;
+                const curveFactor = 0.2;
+                let midX = startPoint.x + dx * 0.5;
+                let midY = startPoint.y + dy * 0.5;
+                const normalX = -dy * curveFactor; // Perpendicular vector component
+                const normalY = dx * curveFactor;  // Perpendicular vector component
+                
+                // Adjust control point slightly if it's a self-referencing loop (source === target, less likely with current logic but for robustness)
+                // or if it's a direct back-link between two nodes, make the curve more pronounced.
+                // This simple curvature is for general links. More complex routing might be needed for very dense graphs.
+                let cpX = midX + normalX;
+                let cpY = midY + normalY;
+                
+                // Add a slight offset if the start and end points are too close or perfectly aligned, to ensure visibility of the curve
+                if (Math.abs(dx) < 1 && Math.abs(dy) < 1) { // Points are virtually identical
+                   cpX += 20; cpY += 20; // Add arbitrary offset for tiny/overlapping nodes
+                }
+
+
+                const path = `M ${startPoint.x},${startPoint.y} Q ${cpX},${cpY} ${endPoint.x},${endPoint.y}`;
+
+                // Calculate midpoint for text label
+                // For a quadratic Bezier, the point at t=0.5 is:
+                // B(0.5) = (1-0.5)^2 P0 + 2(1-0.5)0.5 P1 + 0.5^2 P2
+                // B(0.5) = 0.25 P0 + 0.5 P1 + 0.25 P2
+                const labelX = 0.25 * startPoint.x + 0.5 * cpX + 0.25 * endPoint.x;
+                const labelY = 0.25 * startPoint.y + 0.5 * cpY + 0.25 * endPoint.y;
+
+
+                return (
+                    <g key={link.id}>
+                    <path d={path} stroke="#0EA5E9" strokeWidth="2" fill="none" markerEnd="url(#arrowhead)" />
+                    {link.condition && (
+                        <text 
+                            x={labelX} 
+                            y={labelY - 5} // Adjusted y for better positioning above the line
+                            fill="#94A3B8" 
+                            fontSize="10px" 
+                            textAnchor="middle" 
+                            className="pointer-events-auto"
+                            // Background for text, SVG doesn't directly support bg. Could use a rect under text.
+                            // Or rely on parent background if text is sparse.
+                        >
+                        {link.condition}
+                        </text>
+                    )}
+                    </g>
+                );
+                })}
+            </svg>
+          </div>
+          <ZoomControls
+            scale={scale}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onReset={resetZoom}
+            minScale={MIN_SCALE}
+            maxScale={MAX_SCALE}
+          />
         </main>
       </div>
-      
-      {currentProject && 
-        <ExecutionStatusPanel 
-            logs={executionLogs}
-            currentExecutingNodeId={currentExecutingNodeId}
-            nodes={validNodesOnCanvas} 
-            runStartTime={runStartTime}
-            runEndTime={runEndTime}
-            totalTokensThisRun={totalTokensThisRun}
-            isOpen={isExecutionPanelOpen}
-            onToggle={() => setIsExecutionPanelOpen(prev => !prev)}
-            currentProjectName={currentProject.name}
-        />
-      }
 
-      {selectedNodeState && currentProject && <NodeEditModal node={selectedNodeState} isOpen={isNodeModalOpen} onClose={() => { setIsNodeModalOpen(false); setSelectedNodeState(null); }} onSave={handleSaveNode} allNodes={validNodesOnCanvas} />}
-      {currentProject && <ProjectSettingsModal project={currentProject} isOpen={isProjectSettingsModalOpen} onClose={() => setIsProjectSettingsModalOpen(false)} onSave={handleSaveProjectSettings} />}
-      {currentProject && <RunHistoryModal runHistory={currentProject.runHistory} isOpen={isRunHistoryModalOpen} onClose={() => setIsRunHistoryModalOpen(false)} />}
-      <HelpModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
-      
+      <ExecutionStatusPanel
+        logs={executionLogs}
+        currentExecutingNodeId={currentExecutingNodeId}
+        nodes={validNodesOnCanvas}
+        runStartTime={runStartTime}
+        runEndTime={runEndTime}
+        totalTokensThisRun={totalTokensThisRun}
+        isOpen={isExecutionPanelOpen}
+        onToggle={() => setIsExecutionPanelOpen(prev => !prev)}
+        currentProjectName={currentProject.name}
+      />
+
+      <NodeEditModal node={selectedNodeState} isOpen={isNodeModalOpen} onClose={() => { setIsNodeModalOpen(false); setSelectedNodeState(null); }} onSave={handleSaveNode} allNodes={validNodesOnCanvas} />
+      <ProjectSettingsModal project={currentProject} isOpen={isProjectSettingsModalOpen} onClose={closeProjectSettingsModal} onSave={handleSaveProjectSettingsAndCloseModal} />
+      <RunHistoryModal runHistory={currentProject.runHistory} isOpen={isRunHistoryModalOpen} onClose={closeRunHistoryModal} />
+      <HelpModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
+
       <ConfirmationModal
         isOpen={deleteNodeConfirm.isOpen}
         onClose={() => {
           setDeleteNodeConfirm({ isOpen: false, nodeId: null, nodeName: null });
-          setDeleteActionInitiated(false); 
+          setDeleteActionInitiated(false);
         }}
         onConfirm={() => {
-            confirmDeleteNode();
+            confirmDeleteNode(); 
         }}
         title="Confirm Delete Node"
         message={<>Are you sure you want to delete node "<strong>{deleteNodeConfirm.nodeName || 'this node'}</strong>"? This cannot be undone.</>}
         confirmText="Delete"
       />
        <ConfirmationModal
-        isOpen={apiKeyMissingModalOpen}
-        onClose={() => setApiKeyMissingModalOpen(false)}
-        onConfirm={() => { 
-            setApiKeyMissingModalOpen(false); 
-        }}
-        title="API Key Required"
-        message={<p>Your Gemini API Key is not set. Please configure it in <strong>App Settings</strong> before running a workflow that requires API calls.</p>}
+        isOpen={isLlmErrorModalOpen}
+        onClose={closeLlmErrorModal}
+        onConfirm={closeLlmErrorModal}
+        title="LLM Configuration / API Error"
+        message={llmErrorMessage}
         confirmText="OK"
-        confirmButtonClass="bg-sky-600 hover:bg-sky-700" 
-        cancelText="Close" 
+        confirmButtonClass="bg-sky-600 hover:bg-sky-700"
       />
       <UnsavedChangesModal
         isOpen={isUnsavedChangesModalOpen}

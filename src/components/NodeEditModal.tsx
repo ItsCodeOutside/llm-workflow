@@ -1,3 +1,4 @@
+
 // src/components/NodeEditModal.tsx
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
@@ -11,22 +12,32 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
   useEffect(() => {
     if (node) {
       const clonedNode = deepClone(node);
-      setEditableNode(clonedNode);
-      
-      // Validation logic for save button
-      let isDisabled = !clonedNode.name?.trim(); // Name is always required
-      if (clonedNode.type === NodeType.CONCLUSION) {
-        isDisabled = isDisabled || !clonedNode.prompt?.trim(); // Prompt (as title) is required for Conclusion
-      } else if (clonedNode.type !== NodeType.VARIABLE) { // START, PROMPT, CONDITIONAL
-        isDisabled = isDisabled || !clonedNode.prompt?.trim(); // Prompt is required for these
+      // Ensure outputFormatTemplate has a default for CONCLUSION nodes if undefined/empty
+      if (clonedNode.type === NodeType.CONCLUSION && (!clonedNode.outputFormatTemplate || clonedNode.outputFormatTemplate.trim() === '')) {
+        clonedNode.outputFormatTemplate = '{PREVIOUS_OUTPUT}';
       }
-      // For VARIABLE node, only name is strictly required by this logic. Prompt is not used for LLM.
-      setIsSaveDisabled(isDisabled);
+      setEditableNode(clonedNode);
+      validateNode(clonedNode);
     } else {
       setEditableNode(null);
       setIsSaveDisabled(true);
     }
   }, [node]);
+
+  const validateNode = (nodeToValidate: Node | null) => {
+    if (!nodeToValidate) {
+      setIsSaveDisabled(true);
+      return;
+    }
+    let isDisabled = !nodeToValidate.name?.trim();
+    if (nodeToValidate.type === NodeType.CONCLUSION) {
+      isDisabled = isDisabled || !nodeToValidate.prompt?.trim() || !nodeToValidate.outputFormatTemplate?.trim();
+    } else if (nodeToValidate.type !== NodeType.VARIABLE) { // START, PROMPT, CONDITIONAL
+      isDisabled = isDisabled || !nodeToValidate.prompt?.trim();
+    }
+    setIsSaveDisabled(isDisabled);
+  };
+
 
   if (!isOpen || !editableNode) return null;
 
@@ -35,30 +46,27 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
     setEditableNode(prev => {
       if (!prev) return null;
       const updated = { ...prev, [name]: value };
-      
-      let isDisabled = !updated.name?.trim();
-      if (updated.type === NodeType.CONCLUSION) {
-        isDisabled = isDisabled || !updated.prompt?.trim();
-      } else if (updated.type !== NodeType.VARIABLE) {
-        isDisabled = isDisabled || !updated.prompt?.trim();
-      }
-      setIsSaveDisabled(isDisabled);
+      validateNode(updated);
       return updated;
     });
   };
 
   const handleSave = () => {
     if (editableNode && !isSaveDisabled) {
-      // Sanitize variable name: remove {}
-      if (editableNode.type === NodeType.VARIABLE && editableNode.name) {
-        editableNode.name = editableNode.name.replace(/[{}]/g, '').trim();
-        if (!editableNode.name) {
-            // Handle error or set a default name if it becomes empty after sanitization
-            // For now, this might lead to save button being re-disabled if validation was more complex.
-            // Assuming name validation primarily checks for emptiness.
-        }
+      let nodeToSave = { ...editableNode };
+      // Sanitize variable name
+      if (nodeToSave.type === NodeType.VARIABLE && nodeToSave.name) {
+        nodeToSave.name = nodeToSave.name.replace(/[{}]/g, '').trim();
+         if (!nodeToSave.name) { // Re-validate if sanitization makes it empty
+            validateNode(nodeToSave);
+            if (isSaveDisabled) return; // Prevent save if now invalid
+         }
       }
-      onSave(editableNode);
+      // Default outputFormatTemplate for Conclusion nodes if empty
+      if (nodeToSave.type === NodeType.CONCLUSION && (!nodeToSave.outputFormatTemplate || nodeToSave.outputFormatTemplate.trim() === '')) {
+          nodeToSave.outputFormatTemplate = '{PREVIOUS_OUTPUT}';
+      }
+      onSave(nodeToSave);
     }
   };
 
@@ -67,6 +75,7 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
       if (!prev || !prev.branches) return prev;
       const newBranches = [...prev.branches];
       newBranches[index] = { ...newBranches[index], [field]: value || null };
+      // No specific validation change here unless branches have required fields
       return { ...prev, branches: newBranches };
     });
   };
@@ -140,6 +149,22 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
             {editableNode.type === NodeType.CONCLUSION && <p className="text-xs text-slate-400 mt-1">This title will appear above the final output displayed by this node.</p>}
             {editableNode.type === NodeType.VARIABLE && <p className="text-xs text-slate-400 mt-1">This description is for your reference only.</p>}
           </div>
+        )}
+
+        {editableNode.type === NodeType.CONCLUSION && (
+            <div>
+                <label htmlFor="outputFormatTemplate" className="block text-sm font-medium">Output Formatting (use {'{PREVIOUS_OUTPUT}'})</label>
+                <textarea
+                    name="outputFormatTemplate"
+                    id="outputFormatTemplate"
+                    rows={2}
+                    value={editableNode.outputFormatTemplate || ''}
+                    onChange={handleChange}
+                    placeholder="Default: {PREVIOUS_OUTPUT}"
+                    className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm custom-scroll"
+                />
+                <p className="text-xs text-slate-400 mt-1">Define how the final output is displayed. {'{PREVIOUS_OUTPUT}'} will be replaced by the input to this node.</p>
+            </div>
         )}
 
         {(editableNode.type === NodeType.PROMPT || editableNode.type === NodeType.START || editableNode.type === NodeType.VARIABLE) && (

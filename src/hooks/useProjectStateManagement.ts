@@ -1,7 +1,7 @@
 // src/hooks/useProjectStateManagement.ts
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useProjects } from './useProjects'; // Assuming useProjects is in the same folder or adjust path
+import { useProjects } from '../hooks'; // Corrected import path
 import type { Project } from '../../types';
 import { deepClone, getValidNodes } from '../utils';
 

@@ -13,3 +13,11 @@ export const useProjects = (): ProjectsContextType => {
   if (!context) throw new Error('useProjects must be used within a ProjectsProvider');
   return context;
 };
+
+// Exporting other hooks from this central file
+export { useProjectStateManagement } from './hooks/useProjectStateManagement';
+export { useNodeManagement } from './hooks/useNodeManagement';
+export { useNodeDragging } from './hooks/useNodeDragging';
+export { useWorkflowExecution } from './hooks/useWorkflowExecution';
+export { useEditorModals } from './hooks/useEditorModals';
+export { useVisualLinks } from './hooks/useVisualLinks';
