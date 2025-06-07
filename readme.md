@@ -26,7 +26,7 @@ The initial instructions the LLM gave were to run `npm install` and then `npm ru
 
 ### LLMs
 
-You can use this with Gemini or Ollama. Getting Ollama to work was a little frustrating because I was working across multiple machines. Here's the command that worked for me:
+You can use this with ChatGPT or Ollama. Getting Ollama to work was a little frustrating because I was working across multiple machines. Here's the command that worked for me:
 
 `env OLLAMA_HOST=192.168.0.1:8080 OLLAMA_ORIGINS=* OLLAMA_MODELS=/usr/share/ollama/.ollama/models/ ollama serve`
 
