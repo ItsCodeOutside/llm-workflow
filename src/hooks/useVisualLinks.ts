@@ -1,6 +1,7 @@
 // src/hooks/useVisualLinks.ts
 import { useState, useEffect } from 'react';
-import type { Node, Link as VisualLink, NodeType } from '../../types';
+// Changed import type for NodeType
+import { type Node, type Link as VisualLink, NodeType } from '../../types';
 import { NODE_WIDTH, NODE_HEIGHT } from '../../constants'; // Assuming these are in constants
 
 const getLineToRectangleIntersectionPoint = (
@@ -71,9 +72,13 @@ export const useVisualLinks = (nodes: Node[]) => {
         }
       };
 
-      if (sourceNode.type === 'START' as NodeType.START || sourceNode.type === 'PROMPT' as NodeType.PROMPT || sourceNode.type === 'VARIABLE' as NodeType.VARIABLE) {
+      if (sourceNode.type === NodeType.START || 
+          sourceNode.type === NodeType.PROMPT || 
+          sourceNode.type === NodeType.VARIABLE ||
+          sourceNode.type === NodeType.QUESTION // Added QUESTION node type here
+        ) {
         processLink(sourceNode.nextNodeId);
-      } else if (sourceNode.type === 'CONDITIONAL' as NodeType.CONDITIONAL && sourceNode.branches) {
+      } else if (sourceNode.type === NodeType.CONDITIONAL && sourceNode.branches) {
         sourceNode.branches.forEach(branch => {
           processLink(branch.nextNodeId, branch.condition);
         });

@@ -21,3 +21,4 @@ export { useNodeDragging } from './hooks/useNodeDragging';
 export { useWorkflowExecution } from './hooks/useWorkflowExecution';
 export { useEditorModals } from './hooks/useEditorModals';
 export { useVisualLinks } from './hooks/useVisualLinks';
+export { useCanvasPanZoom } from './hooks/useCanvasPanZoom'; // New export

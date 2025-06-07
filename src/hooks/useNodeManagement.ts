@@ -6,7 +6,7 @@ import { generateId, getValidNodes } from '../utils';
 import { 
     NODE_WIDTH, NODE_HEIGHT, 
     INITIAL_NODE_NAME, INITIAL_NODE_PROMPT, INITIAL_START_NODE_PROMPT, 
-    INITIAL_CONCLUSION_NODE_TITLE, INITIAL_VARIABLE_NODE_NAME 
+    INITIAL_CONCLUSION_NODE_TITLE, INITIAL_VARIABLE_NODE_NAME, INITIAL_QUESTION_NODE_PROMPT
 } from '../../constants';
 
 interface UseNodeManagementProps {
@@ -57,8 +57,12 @@ export const useNodeManagement = ({
     }
     if (type === NodeType.VARIABLE) {
       nodeName = INITIAL_VARIABLE_NODE_NAME;
-      nodePrompt = '';
+      nodePrompt = ''; // Variable nodes use description, not executable prompt
     }
+    if (type === NodeType.QUESTION) {
+      nodePrompt = INITIAL_QUESTION_NODE_PROMPT;
+    }
+
 
     const newNode: Node = {
       id: generateId(),
@@ -71,7 +75,7 @@ export const useNodeManagement = ({
         y: Math.max(0, newNodeY),
       },
       branches: type === NodeType.CONDITIONAL ? [{ id: generateId(), condition: "default", nextNodeId: null }] : undefined,
-      nextNodeId: (type === NodeType.PROMPT || type === NodeType.START || type === NodeType.VARIABLE) ? null : undefined,
+      nextNodeId: (type === NodeType.PROMPT || type === NodeType.START || type === NodeType.VARIABLE || type === NodeType.QUESTION) ? null : undefined,
     };
 
     setCurrentProject(prev => {
@@ -129,6 +133,7 @@ export const useNodeManagement = ({
   }, [currentProject, setCurrentProject, deleteNodeConfirm.nodeId]);
 
   const handleDeleteNodeRequest = useCallback((nodeId: string, e: React.MouseEvent) => {
+    console.log('handleDeleteNodeRequest', nodeId, e);
     e.stopPropagation();
     if (!currentProject) return;
     const nodeToDelete = getValidNodes(currentProject.nodes).find(n => n.id === nodeId);
