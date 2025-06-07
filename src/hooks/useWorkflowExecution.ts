@@ -152,8 +152,17 @@ export const useWorkflowExecution = ({
               resultText = result.text;
               usageData = result.usageMetadata;
             } else if (currentNode.type === 'CONCLUSION' as NodeType.CONCLUSION) {
-              const template = currentNode.outputFormatTemplate || '{PREVIOUS_OUTPUT}';
-              resultText = template.replace(/{PREVIOUS_OUTPUT}/gi, previousOutput || '(No input to display)');
+              let tempOutput = currentNode.outputFormatTemplate || '{PREVIOUS_OUTPUT}';
+              for (const [varName, varValue] of Object.entries(workflowVariables)) {
+                console.log(tempOutput);
+                const safeVarName = varName.replace(/[^a-zA-Z0-9_]/g, '');
+                if (safeVarName) {
+                  tempOutput = tempOutput.replace(new RegExp(`\\{${safeVarName}\\}`, 'gi'), varValue);
+                }
+              }
+              console.log(tempOutput);
+              tempOutput = tempOutput.replace(/{PREVIOUS_OUTPUT}/gi, previousOutput);
+              resultText = tempOutput || '(No input to display)';
             } else if (currentNode.type === 'VARIABLE' as NodeType.VARIABLE) {
               resultText = previousOutput || '';
               const sanitizedVarName = currentNode.name.replace(/[^a-zA-Z0-9_]/g, '');
