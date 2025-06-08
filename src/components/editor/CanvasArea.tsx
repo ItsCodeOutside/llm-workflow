@@ -7,7 +7,21 @@ import {
   NODE_COLORS, INITIAL_CONCLUSION_NODE_TITLE, INITIAL_QUESTION_NODE_PROMPT,
 } from '../../../constants';
 
-const CanvasArea: React.FC<CanvasAreaProps> = ({
+interface ExtendedCanvasAreaProps extends CanvasAreaProps {
+  onNodeTouchStart: (nodeId: string, e: React.TouchEvent) => void; // Add this prop
+}
+
+const NODE_ICONS: { [key in NodeType]?: string } = {
+  [NodeType.START]: 'fas fa-play-circle',
+  [NodeType.PROMPT]: 'fas fa-comment-dots',
+  [NodeType.CONDITIONAL]: 'fas fa-code-branch',
+  [NodeType.VARIABLE]: 'fas fa-database',
+  [NodeType.QUESTION]: 'fas fa-question-circle',
+  [NodeType.CONCLUSION]: 'fas fa-flag-checkered',
+};
+
+
+const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAreaProps
   nodes,
   visualLinks,
   getLineToRectangleIntersectionPoint,
@@ -19,15 +33,15 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   onWheel,
   onCanvasMouseDown,
   zoomControls,
-  handleDeleteNodeRequest, // <-- Add this line
+  onNodeTouchStart, // Destructure new prop
 }) => {
 
-  const getNodeById = (id: string): Node | undefined => nodes.find(n => n.id === id);
+  const getNodeById = (id: string): Node | undefined => nodes.find(n => n.id === id); // Kept for links
 
   return (
     <main 
       ref={editorAreaRef} 
-      className="flex-1 bg-slate-850 p-0 relative overflow-hidden custom-scroll" 
+      className="flex-1 bg-slate-850 p-0 relative overflow-hidden custom-scroll touch-none" // Added touch-none to prevent browser default touch actions like scroll/zoom on canvas itself
       style={{ 
           backgroundImage: `radial-gradient(${getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-slate-700') || '#374151'} 1px, transparent 1px)`, 
           backgroundSize: `${GRID_CELL_SIZE}px ${GRID_CELL_SIZE}px`,
@@ -35,6 +49,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
       }}
       onWheel={onWheel}
       onMouseDown={onCanvasMouseDown} 
+      // Touch events for canvas pan/zoom are handled by useCanvasPanZoom directly on editorAreaRef
     >
       <div 
         ref={canvasContentRef}
@@ -59,55 +74,69 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
             const nodeBaseColorClass = NODE_COLORS[node.type] || NODE_COLORS.PROMPT;
             const borderColorClass = node.isRunning ? 'border-purple-500 animate-pulse' : (node.hasError ? 'border-red-500' : 'border-transparent');
             const finalNodeClass = `${nodeBaseColorClass} ${borderColorClass}`;
-            let nodeTitle = node.type === NodeType.CONCLUSION ? node.lastRunOutput || 'Conclusion node displays output here.' 
-                          : (node.type === NodeType.VARIABLE ? `Variable: ${node.name}. Value: ${node.lastRunOutput || '(not set)'}` 
-                          : (node.type === NodeType.QUESTION ? `Question: ${node.prompt || INITIAL_QUESTION_NODE_PROMPT}`
-                          : node.prompt || 'Node has no prompt yet.'));
-            if (node.isRunning && node.type === NodeType.QUESTION) {
-                nodeTitle = 'Awaiting user input...';
-            }
+            
+            // Simplified title for 'title' attribute, actual content displayed below
+            let nodeHoverTitle = node.name || node.type;
+            if (node.type === NodeType.CONCLUSION) nodeHoverTitle += `: ${node.prompt || INITIAL_CONCLUSION_NODE_TITLE}`;
+            else if (node.type === NodeType.VARIABLE) nodeHoverTitle += `: Stores as {${node.name}}`;
+            else if (node.type === NodeType.QUESTION) nodeHoverTitle += `: ${node.prompt || INITIAL_QUESTION_NODE_PROMPT}`;
+            else nodeHoverTitle += `: ${node.prompt || '(No prompt)'}`;
 
+
+            const iconClass = NODE_ICONS[node.type] || 'fas fa-cog'; // Default icon if somehow type is missing from map
 
             return (
             <div
-            key={node.id}
-            className={`node-${node.id} absolute rounded-lg shadow-xl p-3 border-2 ${finalNodeClass} transition-all duration-150 cursor-grab flex flex-col justify-between items-center`}
-            style={{ left: node.position.x, top: node.position.y, width: NODE_WIDTH, height: NODE_HEIGHT }}
-            onMouseDown={(e) => onNodeMouseDown(node.id, e)}
-            title={nodeTitle}
+              key={node.id}
+              className={`node-${node.id} absolute rounded-lg shadow-xl p-3 border-2 ${finalNodeClass} transition-all duration-150 cursor-grab flex flex-col justify-between items-center`}
+              style={{ left: node.position.x, top: node.position.y, width: NODE_WIDTH, height: NODE_HEIGHT }}
+              onMouseDown={(e) => onNodeMouseDown(node.id, e)}
+              onTouchStart={(e) => onNodeTouchStart(node.id, e)} // Added touch start handler
+              title={nodeHoverTitle} // Use the generated hover title
+              // Prevent canvas pan/zoom when interacting directly with a node via touch
+              // This is implicitly handled by onNodeTouchStart stopping propagation.
             >
             <div className="w-full">
-                <div className="flex justify-between items-start w-full">
-                <h4 className="font-bold text-sm text-white mb-1 truncate max-w-[calc(100%-20px)]">{node.name || `(${node.type.toLowerCase()} node)`}</h4>
-                {node.type !== NodeType.START &&
-                    <button
-                        className="node-delete-button text-red-300 hover:text-red-100 text-xs p-0.5 rounded-full hover:bg-red-500/50 absolute top-1 right-1 z-10"
-                        aria-label={`Delete node ${node.name || node.type}`}
-                        onMouseDown={(e) => e.stopPropagation()} 
-                        onClick={(e) => handleDeleteNodeRequest(node.id, e)}
-                    >
-                        <i className="fas fa-times"></i>
-                    </button>
-                }
+                <div className="flex items-center justify-between w-full mb-1">
+                    <div className="flex items-center overflow-hidden"> {/* Group icon and name, allow name to truncate */}
+                        <i className={`${iconClass} text-white mr-2 text-base`} aria-hidden="true"></i>
+                        <h4 className="font-bold text-sm text-white truncate">
+                             {node.name || node.type.charAt(0).toUpperCase() + node.type.slice(1).toLowerCase().replace('_', ' ')}
+                        </h4>
+                    </div>
+                    {node.type !== NodeType.START &&
+                        <button
+                            className="node-delete-button text-red-300 hover:text-red-100 text-xs p-0.5 rounded-full hover:bg-red-500/50 z-10" // Removed absolute, top, right as flex will handle
+                            aria-label={`Delete node ${node.name || node.type}`}
+                            onMouseDown={(e) => e.stopPropagation()} 
+                            onTouchStart={(e) => e.stopPropagation()} // Prevent node drag on delete
+                        >
+                            <i className="fas fa-times"></i>
+                        </button>
+                    }
                 </div>
                 {node.type === NodeType.CONCLUSION ? (
-                    <div className="text-xs text-slate-200 mb-1 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                    <div className="text-xs text-slate-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
                         <p className="font-semibold italic">{node.prompt || INITIAL_CONCLUSION_NODE_TITLE}</p>
-                        {node.lastRunOutput ?
+                        {node.isRunning ?
+                            <p className="mt-1 text-yellow-300">(Running...)</p> :
+                           (node.lastRunOutput ?
                             <p className="mt-1 text-green-300">{node.lastRunOutput}</p> :
-                            <p className="mt-1 text-slate-400">(Awaiting output)</p>
+                            <p className="mt-1 text-slate-400">(Awaiting output)</p>)
                         }
                     </div>
                 ) : node.type === NodeType.VARIABLE ? (
-                    <div className="text-xs text-slate-200 mb-1 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                    <div className="text-xs text-slate-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
                         <p className="font-semibold italic">Stores as: {'{'+node.name+'}'}</p>
-                        {node.lastRunOutput ?
+                        {node.isRunning ?
+                             <p className="mt-1 text-yellow-300">(Processing...)</p> :
+                           (node.lastRunOutput ?
                             <p className="mt-1 text-green-300">Last Value: {node.lastRunOutput}</p> :
-                            <p className="mt-1 text-slate-400">(No value captured yet)</p>
+                            <p className="mt-1 text-slate-400">(No value captured yet)</p>)
                         }
                     </div>
                 ) : node.type === NodeType.QUESTION ? (
-                     <div className="text-xs text-slate-200 mb-1 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                     <div className="text-xs text-slate-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
                         <p className="font-semibold italic line-clamp-2">Q: {node.prompt || INITIAL_QUESTION_NODE_PROMPT}</p>
                         {node.isRunning ? 
                              <p className="mt-1 text-yellow-300">(Awaiting user input...)</p>
@@ -116,8 +145,10 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
                                 <p className="mt-1 text-slate-400">(No answer yet)</p>
                         )}
                     </div>
-                ) : ( // START or PROMPT
-                    <p className="text-xs text-slate-200 mb-1 h-10 overflow-y-auto custom-scroll line-clamp-3 w-full text-center px-1">{node.prompt || '(No prompt configured)'}</p>
+                ) : ( // START or PROMPT or CONDITIONAL
+                    <p className="text-xs text-slate-200 h-10 overflow-y-auto custom-scroll line-clamp-3 w-full text-center px-1">
+                        {node.type === NodeType.CONDITIONAL ? `Eval: ${node.prompt || '(No prompt)'}` : (node.prompt || '(No prompt configured)')}
+                    </p>
                 )}
             </div>
             {(node.type !== NodeType.CONCLUSION && node.type !== NodeType.VARIABLE && node.type !== NodeType.QUESTION) && node.lastRunOutput && (

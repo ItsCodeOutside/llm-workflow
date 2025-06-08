@@ -1,9 +1,8 @@
-
 // src/components/NodeEditModal.tsx
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { type Node, type NodeModalProps, NodeType } from '../../types'; 
-import { deepClone, generateId } from '../utils';
+import { deepClone, generateId, sanitizeVariableName } from '../utils'; // Import sanitizeVariableName
 
 const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave, allNodes }) => {
   const [editableNode, setEditableNode] = useState<Node | null>(null);
@@ -15,6 +14,10 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
       // Ensure outputFormatTemplate has a default for CONCLUSION nodes if undefined/empty
       if (clonedNode.type === NodeType.CONCLUSION && (!clonedNode.outputFormatTemplate || clonedNode.outputFormatTemplate.trim() === '')) {
         clonedNode.outputFormatTemplate = '{PREVIOUS_OUTPUT}';
+      }
+      // Sanitize name if it's a variable node on load
+      if (clonedNode.type === NodeType.VARIABLE) {
+        clonedNode.name = sanitizeVariableName(clonedNode.name);
       }
       setEditableNode(clonedNode);
       validateNode(clonedNode);
@@ -30,12 +33,15 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
       return;
     }
     let isDisabled = !nodeToValidate.name?.trim();
-    if (nodeToValidate.type === NodeType.CONCLUSION) {
+    if (nodeToValidate.type === NodeType.VARIABLE) {
+      // For variable nodes, name must be alphanumeric_ and not empty.
+      // It's invalid if the name after sanitization is different from current, or if it's empty.
+      isDisabled = isDisabled || (nodeToValidate.name !== sanitizeVariableName(nodeToValidate.name)) || !nodeToValidate.name.trim();
+    } else if (nodeToValidate.type === NodeType.CONCLUSION) {
       isDisabled = isDisabled || !nodeToValidate.prompt?.trim() || !nodeToValidate.outputFormatTemplate?.trim();
-    } else if (nodeToValidate.type !== NodeType.VARIABLE) { // START, PROMPT, CONDITIONAL, QUESTION
+    } else { // START, PROMPT, CONDITIONAL, QUESTION
       isDisabled = isDisabled || !nodeToValidate.prompt?.trim();
     }
-    // Variable nodes only need a name
     setIsSaveDisabled(isDisabled);
   };
 
@@ -46,7 +52,11 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
     const { name, value } = e.target;
     setEditableNode(prev => {
       if (!prev) return null;
-      const updated = { ...prev, [name]: value };
+      let updatedValue = value;
+      if (name === 'name' && prev.type === NodeType.VARIABLE) {
+        updatedValue = sanitizeVariableName(value);
+      }
+      const updated = { ...prev, [name]: updatedValue };
       validateNode(updated);
       return updated;
     });
@@ -55,12 +65,15 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
   const handleSave = () => {
     if (editableNode && !isSaveDisabled) {
       let nodeToSave = { ...editableNode };
-      // Sanitize variable name
+      // Ensure variable name is sanitized one last time on save
       if (nodeToSave.type === NodeType.VARIABLE && nodeToSave.name) {
-        nodeToSave.name = nodeToSave.name.replace(/[{}]/g, '').trim();
-         if (!nodeToSave.name) { // Re-validate if sanitization makes it empty
-            validateNode(nodeToSave);
-            if (isSaveDisabled) return; // Prevent save if now invalid
+        nodeToSave.name = sanitizeVariableName(nodeToSave.name);
+         // This re-validation might be redundant if validateNode in handleChange is sufficient,
+         // but acts as a final safeguard. The button should already be disabled if the name is invalid.
+         if (!nodeToSave.name.trim()) { 
+            // Name became empty after final sanitization, which should be caught by isSaveDisabled
+            // If somehow not, prevent save. (Alert is removed as UI should prevent this state)
+            return; 
          }
       }
       // Default outputFormatTemplate for Conclusion nodes if empty
@@ -126,7 +139,7 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
       <div className="space-y-4 text-slate-300">
         <div>
           <label htmlFor="name" className="block text-sm font-medium">
-            {editableNode.type === NodeType.VARIABLE ? 'Variable Name (no spaces or special chars e.g. myVar)' : 'Node Name'}
+            {editableNode.type === NodeType.VARIABLE ? 'Variable Name' : 'Node Name'}
           </label>
           <input 
             type="text" 
@@ -134,10 +147,15 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
             id="name" 
             value={editableNode.name} 
             onChange={handleChange} 
-            placeholder={editableNode.type === NodeType.VARIABLE ? "e.g., customerName, storyIdea" : "Enter a descriptive name"} 
+            placeholder={editableNode.type === NodeType.VARIABLE ? "e.g., customer_name, story_idea" : "Enter a descriptive name"} 
             className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm" 
           />
-          {editableNode.type === NodeType.VARIABLE && <p className="text-xs text-slate-400 mt-1">This name will be used in curly braces, like {'{'+ (editableNode.name || 'variableName') + '}'}, in other nodes' prompts.</p>}
+          {editableNode.type === NodeType.VARIABLE && (
+            <>
+              <p className="text-xs text-slate-400 mt-1">Use only letters, numbers, and underscores (e.g., my_variable_1).</p>
+              <p className="text-xs text-slate-400 mt-1">This name will be used in curly braces, like {'{'+ (sanitizeVariableName(editableNode.name) || 'variableName') + '}'}, in other nodes' prompts.</p>
+            </>
+          )}
         </div>
 
         {isPromptRelevant && (
@@ -170,7 +188,7 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
                     placeholder="Default: {PREVIOUS_OUTPUT}"
                     className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm custom-scroll"
                 />
-                <p className="text-xs text-slate-400 mt-1">Define how the final output is displayed. {'{PREVIOUS_OUTPUT}'} will be replaced by the input to this node.</p>
+                <p className="text-xs text-slate-400 mt-1">Define how the final output is displayed. {'{PREVIOUS_OUTPUT}'} will be replaced by the input to this node. You can also use project and node variables like {'{my_var}'}.</p>
             </div>
         )}
 

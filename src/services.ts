@@ -69,6 +69,7 @@ const createExampleProjects = (): Project[] => {
       { id: generateId(), sourceId: ex1_conditionalNodeId, targetId: ex1_conclusionUnclearId, condition: 'default' },
     ],
     runHistory: [],
+    projectVariables: [], // Initialize with empty array
     createdAt: now,
     updatedAt: now,
   };
@@ -92,7 +93,7 @@ const createExampleProjects = (): Project[] => {
         id: ex2_startNodeId,
         type: NodeType.START,
         name: 'Story Seed',
-        prompt: "Generate a short story (1-2 paragraphs) about two characters trying to solve a difficult puzzle in an escape room. They are close to figuring it out.",
+        prompt: "Generate a short story (1-2 paragraphs) about two characters trying to solve a difficult puzzle in an escape room. They are close to figuring it out. Use the project variable {setting_description} to set the scene.",
         position: { x: 50, y: 200 },
         nextNodeId: ex2_prompt1NodeId,
       },
@@ -137,6 +138,7 @@ const createExampleProjects = (): Project[] => {
         type: NodeType.CONCLUSION,
         name: 'Final Story',
         prompt: "The interesting escape room story:",
+        outputFormatTemplate: "Here is the final story using project author {project_author}:\n\n{PREVIOUS_OUTPUT}", // Example using project variable in conclusion
         position: { x: 1050, y: 100 },
       },
       {
@@ -157,6 +159,10 @@ const createExampleProjects = (): Project[] => {
         { id: generateId(), sourceId: ex2_prompt2NodeId, targetId: ex2_variableNodeId },
     ],
     runHistory: [],
+    projectVariables: [ // Add some example project variables
+      { id: generateId(), name: 'setting_description', value: 'a dusty, ancient library filled with arcane texts' },
+      { id: generateId(), name: 'project_author', value: 'AI Storyteller Example' }
+    ],
     createdAt: now,
     updatedAt: now,
   };
@@ -173,11 +179,15 @@ export const LocalStorageService = {
         const projectsFromStorage = JSON.parse(data) as Project[];
         // Basic validation: check if it's an array
         if (Array.isArray(projectsFromStorage)) {
-          // Sanitize each project to ensure its nodes array doesn't contain null/undefined
+          // Sanitize each project
           const sanitizedProjects = projectsFromStorage.map(project => {
             if (project && project.nodes && Array.isArray(project.nodes)) {
               // Filter out any null or undefined nodes
               project.nodes = project.nodes.filter((node): node is Node => node !== null && node !== undefined);
+            }
+            // Ensure projectVariables exists and is an array
+            if (project && !Array.isArray(project.projectVariables)) {
+              project.projectVariables = [];
             }
             return project;
           }).filter((project): project is Project => project !== null && project !== undefined); // Filter out null projects

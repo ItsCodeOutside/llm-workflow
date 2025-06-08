@@ -8,7 +8,7 @@ import { LocalStorageService } from './src/services';
 import HomePage from './src/pages/HomePage';
 import ProjectEditorPage from './src/pages/ProjectEditorPage';
 
-import type { AppSettings, Project } from './types';
+import type { AppSettings, Project } from './types'; // Ensured relative path
 import { DEFAULT_APP_SETTINGS } from './constants';
 
 

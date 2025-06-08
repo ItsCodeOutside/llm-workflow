@@ -23,3 +23,14 @@ export const getValidNodes = (nodes: (Node | null | undefined)[] | undefined): N
     return true;
   });
 };
+
+/**
+ * Sanitizes a variable name to include only alphanumeric characters and underscores.
+ * Any other character will be removed.
+ * @param varName The variable name to sanitize.
+ * @returns The sanitized variable name.
+ */
+export const sanitizeVariableName = (varName: string): string => {
+  if (typeof varName !== 'string') return '';
+  return varName.replace(/[^a-zA-Z0-9_]/g, '');
+};

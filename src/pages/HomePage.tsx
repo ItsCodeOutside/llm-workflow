@@ -1,4 +1,3 @@
-
 // src/pages/HomePage.tsx
 import React, { useState, useCallback } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
@@ -7,8 +6,10 @@ import Header from '../components/Header';
 import ConfirmationModal from '../components/ConfirmationModal';
 import ExportProjectModal from '../components/ExportProjectModal'; // New
 import ImportProjectModal from '../components/ImportProjectModal'; // New
-import type { Project, Node, NodeType, Link as VisualLink } from '../../types'; 
-import { generateId, deepClone, getValidNodes } from '../utils';
+// Changed 'import type' for NodeType as it's used as a value
+// Aliased 'Node' to 'WorkflowNode' to avoid conflict with global DOM Node
+import { type Project, NodeType, type Node as WorkflowNode, type Link as VisualLink, type ProjectVariable } from '../../types'; 
+import { generateId, deepClone, getValidNodes, sanitizeVariableName } from '../utils'; // Import sanitizeVariableName
 import { INITIAL_START_NODE_PROMPT } from '../../constants';
 
 
@@ -31,7 +32,7 @@ const HomePage: React.FC = () => {
       author: 'User',
       nodes: [{ 
         id: startNodeId, 
-        type: 'START' as NodeType.START, 
+        type: NodeType.START, // NodeType used as a value here
         name: 'Start Here', 
         prompt: INITIAL_START_NODE_PROMPT, 
         position: { x: 50, y: 50 },
@@ -39,6 +40,7 @@ const HomePage: React.FC = () => {
       }],
       links: [],
       runHistory: [],
+      projectVariables: [], // Initialize with empty project variables
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -54,22 +56,29 @@ const HomePage: React.FC = () => {
 
   const handleOpenExportModal = (project: Project) => {
     const projectToExport = deepClone(project);
-    // Optionally remove runHistory or other sensitive/large data before export
-    // delete projectToExport.runHistory; 
+    
+    // Remove runHistory and lastRunOutput from nodes
+    projectToExport.runHistory = [];
+    projectToExport.nodes = projectToExport.nodes.map(node => {
+      const { lastRunOutput, ...nodeWithoutLastOutput } = node;
+      return nodeWithoutLastOutput;
+    });
+    // projectVariables are fine to export as is.
+    
     setExportModalState({ 
       isOpen: true, 
       projectJson: JSON.stringify(projectToExport, null, 2), 
       projectName: project.name 
     });
   };
-
+  
   const handleImportProject = useCallback((jsonString: string) => {
     setImportError(null);
     try {
       const parsedProject = JSON.parse(jsonString) as Partial<Project>;
 
       if (!parsedProject || typeof parsedProject !== 'object' || !parsedProject.name || !Array.isArray(parsedProject.nodes)) {
-        throw new Error("Invalid project structure. Ensure it's a valid project JSON.");
+        throw new Error("Invalid project structure. Ensure it's a valid project JSON with name and nodes array.");
       }
       
       const newProject = deepClone(parsedProject) as Project; // Assume structure is mostly correct after basic check
@@ -78,11 +87,20 @@ const HomePage: React.FC = () => {
       newProject.id = generateId();
       const nodeIdMap: { [oldId: string]: string } = {};
       
-      newProject.nodes = getValidNodes(newProject.nodes).map((node: Node) => {
+      // Use WorkflowNode for the type annotation of 'node'
+      newProject.nodes = getValidNodes(newProject.nodes).map((node: WorkflowNode) => {
         const oldNodeId = node.id;
         const newNodeId = generateId();
         nodeIdMap[oldNodeId] = newNodeId;
         node.id = newNodeId;
+        // Ensure lastRunOutput is not present on imported nodes
+        delete node.lastRunOutput;
+
+        // Sanitize variable node names
+        if (node.type === NodeType.VARIABLE) { // NodeType used as a value
+          node.name = sanitizeVariableName(node.name || `var_${newNodeId.substring(0,4)}`); // Ensure name exists before sanitizing
+        }
+
 
         if (node.branches && Array.isArray(node.branches)) {
             node.branches = node.branches.map(branch => ({
@@ -93,7 +111,8 @@ const HomePage: React.FC = () => {
         return node;
       });
 
-      newProject.nodes = newProject.nodes.map((node: Node) => {
+      // Use WorkflowNode for the type annotation of 'node'
+      newProject.nodes = newProject.nodes.map((node: WorkflowNode) => {
         if (node.nextNodeId && nodeIdMap[node.nextNodeId]) {
           node.nextNodeId = nodeIdMap[node.nextNodeId];
         } else if (node.nextNodeId) { // If old ID not in map, link is broken
@@ -122,6 +141,17 @@ const HomePage: React.FC = () => {
         })).filter(link => nodeIdMap[link.sourceId] && nodeIdMap[link.targetId]); // Keep only valid links
       } else {
         newProject.links = [];
+      }
+
+      // Handle projectVariables: regenerate IDs and sanitize names
+      if (Array.isArray(newProject.projectVariables)) {
+        newProject.projectVariables = newProject.projectVariables.map((pv: ProjectVariable, index: number) => ({
+          id: generateId(),
+          name: sanitizeVariableName(pv.name || `proj_var_${index}`), 
+          value: pv.value || '', 
+        })).filter(pv => pv.name.trim() !== ''); 
+      } else {
+        newProject.projectVariables = [];
       }
 
 
@@ -175,6 +205,9 @@ const HomePage: React.FC = () => {
                 <h2 className="text-2xl font-semibold text-sky-400 mb-2 truncate">{project.name}</h2>
                 <p className="text-slate-400 mb-1 text-sm">Author: {project.author}</p>
                 <p className="text-slate-300 mb-4 line-clamp-3 h-16">{project.description}</p> {/* Fixed height for description */}
+                 {project.projectVariables && project.projectVariables.length > 0 && (
+                  <p className="text-xs text-slate-500 mb-1">Project Variables: {project.projectVariables.length}</p>
+                )}
               </div>
               <div className="mt-auto">
                  <p className="text-xs text-slate-500 mb-3">Last updated: {new Date(project.updatedAt).toLocaleDateString()}</p>

@@ -245,6 +245,9 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
                 Your API key is stored in your browser's local storage.
                 Refer to the <a href="https://platform.openai.com/account/api-keys" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:text-sky-300 underline">OpenAI API Keys page</a> for how to get an API key.
               </p>
+              <p className="mt-1 text-xs text-slate-400">
+              <strong>Warning:</strong> Check the <a href="https://openai.com/api/pricing/" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:text-sky-300 underline">cost of tokens</a> for the model you want to use.
+              </p>
             </div>
             <div>
               <label htmlFor="chatGptModel" className="block text-sm font-medium">ChatGPT Model</label>

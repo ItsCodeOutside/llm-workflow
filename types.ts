@@ -1,3 +1,5 @@
+
+
 export enum NodeType {
   START = 'START',
   PROMPT = 'PROMPT',
@@ -84,11 +86,17 @@ export interface NodeModalProps {
   allNodes: Node[];
 }
 
+export interface ProjectVariable {
+  id: string;
+  name: string;
+  value: string;
+}
+
 export interface ProjectSettingsModalProps {
   project: Project | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updatedSettings: Pick<Project, 'name' | 'description' | 'author'>) => void;
+  onSave: (updatedSettings: Pick<Project, 'name' | 'description' | 'author' | 'projectVariables'>) => void;
 }
 
 export interface AppSettingsModalProps {
@@ -138,6 +146,7 @@ export interface Project {
   runHistory: ProjectRun[];
   createdAt: string;
   updatedAt: string;
+  projectVariables?: ProjectVariable[]; // Added project-wide variables
 }
 
 export interface HelpModalProps {
@@ -205,7 +214,7 @@ export interface CanvasAreaProps {
     minScale: number;
     maxScale: number;
   };
-  handleDeleteNodeRequest: (nodeId: string, e: React.MouseEvent) => void;
+  // onNodeTouchStart implicitly handled via ProjectEditorPage's ExtendedCanvasAreaProps
 }
 
 export interface QuestionInputModalProps {
@@ -213,4 +222,15 @@ export interface QuestionInputModalProps {
   questionText: string;
   onSubmit: (answer: string) => void;
   onEndRun: () => void;
+}
+
+export interface ConclusionOutputModalData {
+  title: string;
+  content: string;
+}
+
+export interface ConclusionOutputModalProps {
+  data: ConclusionOutputModalData | null;
+  isOpen: boolean;
+  onClose: () => void;
 }
