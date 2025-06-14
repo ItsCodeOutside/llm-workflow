@@ -1,8 +1,8 @@
 // src/hooks/useProjectStateManagement.ts
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useProjects } from '../hooks'; // Corrected import path
-import type { Project } from '../../types';
+import { useProjects } from '../hooks'; 
+import type { Project } from '../types'; // Updated path
 import { deepClone, getValidNodes } from '../utils';
 
 export const useProjectStateManagement = () => {
@@ -10,7 +10,7 @@ export const useProjectStateManagement = () => {
   const { getProjectById, updateProject } = useProjects();
   const navigate = useNavigate();
 
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [currentProject, setCurrentProjectInternal] = useState<Project | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isUnsavedChangesModalOpen, setIsUnsavedChangesModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,31 +21,35 @@ export const useProjectStateManagement = () => {
       setIsLoading(false);
       return;
     }
-    const project = getProjectById(projectId);
-    if (project) {
-      const sanitizedProject = {
-        ...project,
-        nodes: getValidNodes(project.nodes),
-      };
-      setCurrentProject(deepClone(sanitizedProject));
+    const projectFromContext = getProjectById(projectId);
+    if (projectFromContext) {
+      const sanitizedProject = deepClone(projectFromContext);
+      sanitizedProject.nodes = getValidNodes(sanitizedProject.nodes); 
+      setCurrentProjectInternal(sanitizedProject);
       setHasUnsavedChanges(false);
     } else {
-      console.warn(`Project with ID ${projectId} not found.`);
       navigate('/');
     }
     setIsLoading(false);
   }, [projectId, getProjectById, navigate]);
 
   const saveProjectState = useCallback((projectState: Project | null, skipSetCurrent: boolean = false) => {
-    if (!projectState) return;
-    const projectToSave = {
-      ...projectState,
-      nodes: getValidNodes(projectState.nodes),
+    if (!projectState) {
+      return;
+    }
+    
+    const fullySanitizedProjectState = deepClone(projectState);
+
+    const projectToSaveForUpdate = {
+      ...fullySanitizedProjectState,
+      nodes: getValidNodes(fullySanitizedProjectState.nodes),
       updatedAt: new Date().toISOString(),
     };
-    updateProject(projectToSave);
+    
+    updateProject(projectToSaveForUpdate);
+
     if (!skipSetCurrent) {
-      setCurrentProject(projectToSave);
+      setCurrentProjectInternal(projectToSaveForUpdate);
     }
     setHasUnsavedChanges(false);
   }, [updateProject]);
@@ -73,12 +77,33 @@ export const useProjectStateManagement = () => {
   };
   
   const updateCurrentProject = useCallback((updater: Project | ((prev: Project | null) => Project | null)) => {
-    setCurrentProject(prevProject => {
-        const newProject = typeof updater === 'function' ? updater(prevProject) : updater;
-        if (newProject && JSON.stringify(prevProject) !== JSON.stringify(newProject)) {
-            setHasUnsavedChanges(true);
+    setCurrentProjectInternal(prevProjectInternalState => {
+        const prevProjectForComparison = prevProjectInternalState ? deepClone(prevProjectInternalState) : null;
+        const newProjectCandidate = typeof updater === 'function' ? updater(prevProjectInternalState) : updater;
+        const newProjectToSet = newProjectCandidate ? deepClone(newProjectCandidate) : null;
+
+        if (newProjectToSet) {
+            newProjectToSet.nodes = getValidNodes(newProjectToSet.nodes); 
+            let hasChanged = false;
+            try {
+                const prevProjectStringToCompare = prevProjectForComparison ? JSON.stringify(prevProjectForComparison) : "null";
+                const newProjectStringToCompare = newProjectToSet ? JSON.stringify(newProjectToSet) : "null";
+
+                if (prevProjectStringToCompare !== newProjectStringToCompare) {
+                    hasChanged = true;
+                }
+            } catch (e) {
+                hasChanged = true; 
+            }
+            if (hasChanged) {
+                setHasUnsavedChanges(true);
+            }
+        } else {
+             if(prevProjectInternalState !== null) {
+                setHasUnsavedChanges(true);
+             }
         }
-        return newProject;
+        return newProjectToSet;
     });
   }, []);
 
@@ -86,10 +111,10 @@ export const useProjectStateManagement = () => {
   return {
     projectId,
     currentProject,
-    setCurrentProject: updateCurrentProject, // Use the wrapped setter
+    setCurrentProject: updateCurrentProject,
     isLoading,
     hasUnsavedChanges,
-    setHasUnsavedChanges, // Expose directly if needed by other hooks for complex state updates
+    setHasUnsavedChanges, 
     saveProjectState,
     isUnsavedChangesModalOpen,
     setIsUnsavedChangesModalOpen,

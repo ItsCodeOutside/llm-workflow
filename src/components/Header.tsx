@@ -1,24 +1,33 @@
 // src/components/Header.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAppSettings, useIsMobile } from '../hooks';
 import AppSettingsModal from './AppSettingsModal';
-import type { AppSettings } from '../../types';
+import type { AppSettings } from '../types'; // Updated path
+import { LLMProvider } from '../types'; // Updated path
 
 interface HeaderProps {
   onRunProject?: () => void;
   onStopProject?: () => void;
+  onStartStepThrough?: () => void;
+  onProcessNextStep?: () => void;
   currentProjectName?: string;
   isWorkflowRunning?: boolean;
-  onToggleSidebar?: () => void; // For mobile sidebar
-  onNavigateHome?: () => void; // New prop for handling home navigation
+  isSteppingActive?: boolean;
+  hasNextStep?: boolean;
+  onToggleSidebar?: () => void;
+  onNavigateHome?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
   onRunProject, 
   onStopProject, 
+  onStartStepThrough,
+  onProcessNextStep,
   currentProjectName, 
   isWorkflowRunning, 
+  isSteppingActive,
+  hasNextStep,
   onToggleSidebar,
   onNavigateHome 
 }) => {
@@ -52,12 +61,41 @@ const Header: React.FC<HeaderProps> = ({
 
   const handleLogoClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (onNavigateHome) {
-      event.preventDefault(); // Prevent RouterLink default navigation
+      event.preventDefault(); 
       onNavigateHome();
     }
-    // If onNavigateHome is not provided, RouterLink will navigate as usual
   };
+
+  const { providerName, modelName } = useMemo(() => {
+    if (!appSettings) return { providerName: "N/A", modelName: "N/A" };
+    let prov = "";
+    let mod = "Not Selected";
+    switch (appSettings.llmProvider) {
+        case LLMProvider.CHATGPT:
+            prov = "ChatGPT";
+            mod = appSettings.chatGptModel || "Not Selected";
+            break;
+        case LLMProvider.OLLAMA:
+            prov = "Ollama";
+            mod = appSettings.ollamaModel || "Not Selected";
+            break;
+        default:
+            const exhaustiveCheck: never = appSettings.llmProvider;
+            prov = `Unknown (${exhaustiveCheck})`;
+            mod = "Error";
+    }
+    return { providerName: prov, modelName: mod };
+  }, [appSettings]);
+
+  const fullLlmInfo = `${providerName}: ${modelName}`;
+  const displayedLlmInfo = `${providerName}: ${isMobile && modelName.length > 10 ? modelName.substring(0,7) + '...' : modelName}`;
   
+  const stepButtonText = isSteppingActive ? (hasNextStep ? "Next Step" : "Stepping Done") : "Step";
+  const stepButtonIcon = isSteppingActive ? (hasNextStep ? "fas fa-shoe-prints" : "fas fa-check-circle") : "fas fa-step-forward";
+  const isStepButtonDisabled = (isWorkflowRunning && !isSteppingActive) || (isSteppingActive && !hasNextStep);
+  const isRunButtonDisabled = isSteppingActive || (isWorkflowRunning && !isSteppingActive);
+
+
   return (
     <>
       <header className="bg-slate-800 p-3 sm:p-4 shadow-md flex justify-between items-center z-30 relative">
@@ -74,32 +112,69 @@ const Header: React.FC<HeaderProps> = ({
           <RouterLink 
             to="/" 
             className="text-xl sm:text-2xl font-bold text-sky-400 hover:text-sky-300 flex items-center"
-            onClick={handleLogoClick} // Use the new handler
+            onClick={handleLogoClick}
           >
             <i className="fas fa-cogs mr-2"></i>
             <span className={isMobile ? "hidden sm:inline" : "inline"}>LLM Workflow</span>
           </RouterLink>
           {currentProjectName && <span className="text-slate-400 text-sm sm:text-lg hidden md:inline">| {currentProjectName}</span>}
         </div>
-        <div className="flex items-center space-x-2 sm:space-x-3">
+        <div className="flex items-center space-x-1 sm:space-x-2">
+          <span 
+            className="text-xs text-slate-400 truncate hidden sm:block" 
+            title={fullLlmInfo}
+            style={{ maxWidth: '150px' }} 
+            aria-label={`Current LLM: ${fullLlmInfo}`}
+          >
+            {displayedLlmInfo}
+          </span>
+           <span 
+            className="text-xs text-slate-400 truncate sm:hidden" 
+            title={fullLlmInfo}
+            style={{ maxWidth: '100px' }} 
+            aria-label={`Current LLM: ${fullLlmInfo}`}
+          >
+            {displayedLlmInfo}
+          </span>
+
           {onRunProject && onStopProject && (
             isWorkflowRunning ? (
               <button
                 onClick={onStopProject}
-                className="rounded-md bg-red-600 px-2 py-1.5 sm:px-4 sm:py-2 text-white hover:bg-red-700 flex items-center text-xs sm:text-base"
+                className="rounded-md bg-red-600 px-2 py-1.5 sm:px-3 sm:py-2 text-white hover:bg-red-700 flex items-center text-xs sm:text-sm"
                 aria-label="Stop Project Run"
               >
-                <i className="fas fa-stop sm:mr-2"></i><span className="hidden sm:inline">Stop</span>
+                <i className="fas fa-stop sm:mr-1"></i><span className="hidden sm:inline">Stop</span>
               </button>
             ) : (
               <button
                 onClick={onRunProject}
-                className="rounded-md bg-green-600 px-2 py-1.5 sm:px-4 sm:py-2 text-white hover:bg-green-700 flex items-center text-xs sm:text-base"
+                disabled={isRunButtonDisabled}
+                className={`rounded-md px-2 py-1.5 sm:px-3 sm:py-2 text-white flex items-center text-xs sm:text-sm ${
+                    isRunButtonDisabled ? 'bg-slate-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                }`}
                 aria-label="Run Project"
               >
-                <i className="fas fa-play sm:mr-2"></i><span className="hidden sm:inline">Run</span>
+                <i className="fas fa-play sm:mr-1"></i><span className="hidden sm:inline">Run</span>
               </button>
             )
+          )}
+
+          {onStartStepThrough && onProcessNextStep && (
+            <button
+                onClick={isSteppingActive ? onProcessNextStep : onStartStepThrough}
+                disabled={isStepButtonDisabled}
+                className={`rounded-md px-2 py-1.5 sm:px-3 sm:py-2 text-white flex items-center text-xs sm:text-sm ${
+                    isStepButtonDisabled
+                        ? 'bg-slate-500 cursor-not-allowed'
+                        : 'bg-sky-600 hover:bg-sky-700'
+                }`}
+                aria-label={stepButtonText}
+                title={stepButtonText}
+            >
+                <i className={`${stepButtonIcon} ${isMobile && stepButtonText !== "Step" ? "" : "sm:mr-1"}`}></i>
+                <span className={`hidden ${isMobile && stepButtonText !== "Step" ? "" : "sm:inline"}`}>{stepButtonText}</span>
+            </button>
           )}
           
           {isMobile ? (
@@ -119,17 +194,16 @@ const Header: React.FC<HeaderProps> = ({
                   >
                     <i className="fas fa-cog mr-2"></i>App Settings
                   </button>
-                  {/* Add other actions here if needed */}
                 </div>
               )}
             </div>
           ) : (
             <button 
               onClick={() => setIsAppSettingsModalOpen(true)}
-              className="rounded-md bg-slate-700 px-3 py-2 sm:px-4 text-slate-200 hover:bg-slate-600 flex items-center text-sm sm:text-base"
+              className="rounded-md bg-slate-700 px-3 py-2 sm:px-4 text-slate-200 hover:bg-slate-600 flex items-center text-sm"
               aria-label="Application Settings"
             >
-              <i className="fas fa-cog mr-1 sm:mr-2"></i>Settings
+              <i className="fas fa-cog mr-1 sm:mr-2"></i><span className="hidden sm:inline">Settings</span>
             </button>
           )}
         </div>

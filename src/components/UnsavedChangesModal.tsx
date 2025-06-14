@@ -1,4 +1,3 @@
-
 // src/components/UnsavedChangesModal.tsx
 import React from 'react';
 import Modal from './Modal';
@@ -18,25 +17,30 @@ const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  // Order for flex-row-reverse: Primary, Secondary, Tertiary
+  // Visual order L-R: Tertiary, Secondary, Primary
   const footer = (
     <>
+      {/* Primary Action: Save & Close (Rightmost on sm screens) */}
       <button
-        onClick={onClose} // Cancel action
-        className="mt-3 inline-flex w-full justify-center rounded-md bg-slate-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:mt-0 sm:w-auto"
+        onClick={onSaveAndClose}
+        className="inline-flex w-full justify-center rounded-md bg-green-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:ml-3 sm:w-auto sm:text-sm"
       >
-        Cancel
+        Save & Close
       </button>
+      {/* Secondary Action: Close without Saving (Middle on sm screens) */}
       <button
         onClick={onCloseWithoutSaving}
-        className="ml-3 mt-3 inline-flex w-full justify-center rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:mt-0 sm:w-auto"
+        className="mt-3 inline-flex w-full justify-center rounded-md bg-yellow-500 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
       >
         Close without Saving
       </button>
+      {/* Tertiary Action: Cancel (Leftmost on sm screens) */}
       <button
-        onClick={onSaveAndClose}
-        className="ml-3 mt-3 inline-flex w-full justify-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:mt-0 sm:w-auto"
+        onClick={onClose} 
+        className="mt-3 inline-flex w-full justify-center rounded-md bg-slate-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
       >
-        Save & Close
+        Cancel
       </button>
     </>
   );
@@ -44,7 +48,7 @@ const UnsavedChangesModal: React.FC<UnsavedChangesModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose} // Clicking overlay or escape should also trigger the cancel action
+      onClose={onClose} 
       title="Unsaved Changes"
       footerContent={footer}
     >

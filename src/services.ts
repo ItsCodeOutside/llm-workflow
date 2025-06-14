@@ -1,8 +1,7 @@
-
 // src/services.ts
-import { Project, AppSettings, Node, NodeType, Link as VisualLink } from '../types';
-import { LOCAL_STORAGE_PROJECTS_KEY, LOCAL_STORAGE_SETTINGS_KEY, DEFAULT_APP_SETTINGS } from '../constants';
-import { generateId } from './utils'; // Assuming generateId is in utils
+import { Project, AppSettings, Node, NodeType, Link as VisualLink } from './types'; // Updated path
+import { LOCAL_STORAGE_PROJECTS_KEY, LOCAL_STORAGE_SETTINGS_KEY, DEFAULT_APP_SETTINGS } from './constants'; // Updated path
+import { generateId } from './utils'; 
 
 const createExampleProjects = (): Project[] => {
   const now = new Date().toISOString();
@@ -52,14 +51,14 @@ const createExampleProjects = (): Project[] => {
         type: NodeType.CONCLUSION,
         name: 'Result: >= 50',
         prompt: "The Oracle's number was 50 or greater.",
-        position: { x: 650, y: 250 },
+        position: { x: 650, y: 200 },
       },
       {
         id: ex1_conclusionUnclearId,
         type: NodeType.CONCLUSION,
         name: 'Result: Unclear',
         prompt: "The Oracle's response about the number's range was unclear.",
-        position: { x: 650, y: 400 },
+        position: { x: 650, y: 350 },
       }
     ],
     links: [
@@ -69,7 +68,7 @@ const createExampleProjects = (): Project[] => {
       { id: generateId(), sourceId: ex1_conditionalNodeId, targetId: ex1_conclusionUnclearId, condition: 'default' },
     ],
     runHistory: [],
-    projectVariables: [], // Initialize with empty array
+    projectVariables: [], 
     createdAt: now,
     updatedAt: now,
   };
@@ -109,7 +108,7 @@ const createExampleProjects = (): Project[] => {
         id: ex2_variableNodeId,
         type: NodeType.VARIABLE,
         name: 'story',
-        prompt: '', // Variable nodes use 'name' for placeholder, 'prompt' can be description
+        prompt: '', 
         position: { x: 550, y: 200},
         nextNodeId: ex2_conditionalNodeId,
       },
@@ -122,7 +121,7 @@ const createExampleProjects = (): Project[] => {
         branches: [
           { id: generateId(), condition: 'Interesting', nextNodeId: ex2_conclusionNodeId },
           { id: generateId(), condition: 'Not interesting', nextNodeId: ex2_prompt2NodeId },
-          { id: generateId(), condition: 'Default', nextNodeId: ex2_conclusionFallbackNodeId }, // Fallback if LLM output is unexpected
+          { id: generateId(), condition: 'Default', nextNodeId: ex2_conclusionFallbackNodeId }, 
         ],
       },
       {
@@ -131,21 +130,21 @@ const createExampleProjects = (): Project[] => {
         name: 'Improve Story',
         prompt: "The story below was deemed 'Not interesting'.\nPrevious Story:\n{story}\n\n---\nRewrite it to be more engaging. You could add a surprising twist, a moment of clever deduction, or deepen the characters' interaction but always be sure to maintain a consistent storyline. Respond ONLY with the story, no explanation.",
         position: { x: 800, y: 600 },
-        nextNodeId: ex2_variableNodeId, // Loop back via variable
+        nextNodeId: ex2_variableNodeId, 
       },
       {
         id: ex2_conclusionNodeId,
         type: NodeType.CONCLUSION,
         name: 'Final Story',
         prompt: "The interesting escape room story:",
-        outputFormatTemplate: "Here is the final story using project author {project_author}:\n\n{PREVIOUS_OUTPUT}", // Example using project variable in conclusion
+        outputFormatTemplate: "Here is the final story using project author '{project_author}':\n\n{story}", 
         position: { x: 1050, y: 100 },
       },
       {
         id: ex2_conclusionFallbackNodeId,
         type: NodeType.CONCLUSION,
         name: 'Story Assessment Unclear',
-        prompt: "The story assessment was unclear. Displaying last version:",
+        prompt: "The story assessment was unclear. Displaying last version: {story}",
         position: { x: 1050, y: 300 },
       }
     ],
@@ -159,7 +158,7 @@ const createExampleProjects = (): Project[] => {
         { id: generateId(), sourceId: ex2_prompt2NodeId, targetId: ex2_variableNodeId },
     ],
     runHistory: [],
-    projectVariables: [ // Add some example project variables
+    projectVariables: [ 
       { id: generateId(), name: 'setting_description', value: 'a dusty, ancient library filled with arcane texts' },
       { id: generateId(), name: 'project_author', value: 'AI Storyteller Example' }
     ],
@@ -167,7 +166,120 @@ const createExampleProjects = (): Project[] => {
     updatedAt: now,
   };
 
-  return [exampleProject1, exampleProject2];
+  // --- Example Project 3: Parallelism ---
+  const ex3_startNodeId = "lzelrwv4l";
+  const ex3_parallelNodeId = "vewgibgpn";
+  const ex3_varJokeNodeId = "1ok8dr6kq";
+  const ex3_promptFunnyNodeId = "fqxjna7gx";
+  const ex3_questionNodeId = "e4nnboq2b";
+  const ex3_syncNodeId = "9fk64ucxx";
+  const ex3_conclusionNodeId = "tsqcktm8o";
+  const ex3_varLlmAnalysisNodeId = "wyf074qat";
+  const ex3_varUserInputNodeId = "ov2sjuhrb";
+
+
+  const exampleProject3: Project = {
+    id: "g7ytvl6yy", // Using provided ID, assuming uniqueness for example
+    name: "Parallelism",
+    description: "Example of concurrent execution.",
+    author: "App Examples",
+    nodes: [
+      {
+        id: ex3_startNodeId,
+        type: NodeType.START,
+        name: "Start Here",
+        prompt: "OK, Google, please tell me a one-line joke.",
+        position: { x: 380, y: 640 },
+        nextNodeId: ex3_parallelNodeId
+      },
+      {
+        id: ex3_parallelNodeId,
+        type: NodeType.PARALLEL,
+        name: "Parallel Split",
+        prompt: "Executes multiple downstream paths concurrently.",
+        parallelNextNodeIds: [
+          ex3_varJokeNodeId,
+          ex3_promptFunnyNodeId,
+          ex3_questionNodeId
+        ],
+        position: { x: 640, y: 640 }
+      },
+      {
+        id: ex3_varJokeNodeId,
+        type: NodeType.VARIABLE,
+        name: "Joke",
+        prompt: "",
+        position: { x: 920, y: 460 },
+        nextNodeId: ex3_syncNodeId
+      },
+      {
+        id: ex3_promptFunnyNodeId,
+        type: NodeType.PROMPT,
+        name: "Funny?",
+        prompt: "Please decide if this joke is funny:\n```\n{PREVIOUS_OUTPUT}\n```",
+        position: { x: 920, y: 640 },
+        nextNodeId: ex3_varLlmAnalysisNodeId
+      },
+      {
+        id: ex3_questionNodeId,
+        type: NodeType.QUESTION,
+        name: "Question",
+        prompt: "Please provide your input:",
+        position: { x: 920, y: 820 },
+        nextNodeId: ex3_varUserInputNodeId
+      },
+      {
+        id: ex3_varLlmAnalysisNodeId,
+        type: NodeType.VARIABLE,
+        name: "llmAnalysis",
+        prompt: "",
+        position: { x: 1160, y: 640 },
+        nextNodeId: ex3_syncNodeId
+      },
+      {
+        id: ex3_varUserInputNodeId,
+        type: NodeType.VARIABLE,
+        name: "userInput",
+        prompt: "",
+        position: { x: 1160, y: 820 },
+        nextNodeId: ex3_syncNodeId
+      },
+       {
+        id: ex3_syncNodeId,
+        type: NodeType.SYNCHRONIZE,
+        name: "Synchronize Paths",
+        prompt: "Waits for parallel paths to complete before continuing.",
+        position: { x: 1440, y: 460 },
+        nextNodeId: ex3_conclusionNodeId
+      },
+      {
+        id: ex3_conclusionNodeId,
+        type: NodeType.CONCLUSION,
+        name: "Finish",
+        prompt: "Final Output",
+        outputFormatTemplate: "Joke: {Joke}\n\nLLM Analysis:\n{llmAnalysis}\n\nUser input:\n{userInput}",
+        position: { x: 1720, y: 460 }
+      }
+    ],
+    links: [
+        { id: generateId(), sourceId: ex3_startNodeId, targetId: ex3_parallelNodeId },
+        { id: generateId(), sourceId: ex3_parallelNodeId, targetId: ex3_varJokeNodeId },
+        { id: generateId(), sourceId: ex3_parallelNodeId, targetId: ex3_promptFunnyNodeId },
+        { id: generateId(), sourceId: ex3_parallelNodeId, targetId: ex3_questionNodeId },
+        { id: generateId(), sourceId: ex3_varJokeNodeId, targetId: ex3_syncNodeId },
+        { id: generateId(), sourceId: ex3_promptFunnyNodeId, targetId: ex3_varLlmAnalysisNodeId },
+        { id: generateId(), sourceId: ex3_varLlmAnalysisNodeId, targetId: ex3_syncNodeId },
+        { id: generateId(), sourceId: ex3_questionNodeId, targetId: ex3_varUserInputNodeId },
+        { id: generateId(), sourceId: ex3_varUserInputNodeId, targetId: ex3_syncNodeId },
+        { id: generateId(), sourceId: ex3_syncNodeId, targetId: ex3_conclusionNodeId },
+    ],
+    runHistory: [],
+    projectVariables: [],
+    createdAt: now, // Using "now" for consistency, original value "2025-06-14T15:36:33.118Z" ignored
+    updatedAt: now, // Using "now" for consistency, original value "2025-06-14T15:40:52.112Z" ignored
+  };
+
+  return [exampleProject1, exampleProject2, exampleProject3];
 };
 
 
@@ -177,39 +289,46 @@ export const LocalStorageService = {
     if (data) {
       try {
         const projectsFromStorage = JSON.parse(data) as Project[];
-        // Basic validation: check if it's an array
         if (Array.isArray(projectsFromStorage)) {
-          // Sanitize each project
           const sanitizedProjects = projectsFromStorage.map(project => {
             if (project && project.nodes && Array.isArray(project.nodes)) {
-              // Filter out any null or undefined nodes
               project.nodes = project.nodes.filter((node): node is Node => node !== null && node !== undefined);
             }
-            // Ensure projectVariables exists and is an array
             if (project && !Array.isArray(project.projectVariables)) {
               project.projectVariables = [];
             }
             return project;
-          }).filter((project): project is Project => project !== null && project !== undefined); // Filter out null projects
+          }).filter((project): project is Project => project !== null && project !== undefined); 
           return sanitizedProjects;
         }
       } catch (e) {
-        console.error("Error parsing projects from localStorage", e);
-        // Fall through to return example projects if parsing fails
+        console.error("[LocalStorageService] Error parsing projects from localStorage", e);
       }
     }
-    // If no data, data is invalid, or parsing failed, return example projects
     const examples = createExampleProjects();
-    LocalStorageService.saveProjects(examples); // Save examples for next time
+    LocalStorageService.saveProjects(examples); 
     return examples;
   },
   saveProjects: (projects: Project[]): void => {
-    localStorage.setItem(LOCAL_STORAGE_PROJECTS_KEY, JSON.stringify(projects));
+    try {
+      const projectString = JSON.stringify(projects);
+      localStorage.setItem(LOCAL_STORAGE_PROJECTS_KEY, projectString);
+    } catch (e) {
+      console.error(
+        "[LocalStorageService] saveProjects error: Could not stringify projects. This may be due to circular references or non-serializable data in the project state. Error message:",
+        e instanceof Error ? e.message : String(e)
+      );
+      if (e instanceof Error && e.stack) {
+        console.error("[LocalStorageService] saveProjects error stack:", e.stack);
+      }
+      if (e instanceof TypeError && (e.message.toLowerCase().includes('circular structure') || e.message.toLowerCase().includes('cyclic object value'))) {
+          console.error("[LocalStorageService] CIRCULAR STRUCTURE ERROR detected during saveProjects. The 'projects' object likely contains HTMLElement or other non-serializable data with circular references.");
+      }
+    }
   },
   getAppSettings: (): AppSettings => {
     const data = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
     const loadedSettings = data ? JSON.parse(data) : DEFAULT_APP_SETTINGS;
-    // Ensure all default keys are present even if stored settings are older
     return { ...DEFAULT_APP_SETTINGS, ...loadedSettings };
   },
   saveAppSettings: (settings: AppSettings): void => {

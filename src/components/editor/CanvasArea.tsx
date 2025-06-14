@@ -1,14 +1,18 @@
+
 // src/components/editor/CanvasArea.tsx
 import React from 'react';
 import ZoomControls from '../ZoomControls';
-import { type Node, NodeType, type CanvasAreaProps } from '../../../types';
+import { NodeType } from '../../types'; // Changed from import type
+import type { Node, CanvasAreaProps as ImportedCanvasAreaProps } from '../../types';
 import {
   NODE_WIDTH, NODE_HEIGHT, GRID_CELL_SIZE,
-  NODE_COLORS, INITIAL_CONCLUSION_NODE_TITLE, INITIAL_QUESTION_NODE_PROMPT,
-} from '../../../constants';
+  NODE_COLORS, INITIAL_CONCLUSION_NODE_TITLE, INITIAL_QUESTION_NODE_PROMPT, 
+  INITIAL_PARALLEL_NODE_DESCRIPTION, INITIAL_SYNCHRONIZE_NODE_DESCRIPTION
+} from '../../constants';
 
-interface ExtendedCanvasAreaProps extends CanvasAreaProps {
-  onNodeTouchStart: (nodeId: string, e: React.TouchEvent) => void; // Add this prop
+interface ExtendedCanvasAreaProps extends ImportedCanvasAreaProps {
+  onNodeTouchStart: (nodeId: string, e: React.TouchEvent) => void; 
+  // onDeleteNodeRequest is already in ImportedCanvasAreaProps
 }
 
 const NODE_ICONS: { [key in NodeType]?: string } = {
@@ -17,11 +21,14 @@ const NODE_ICONS: { [key in NodeType]?: string } = {
   [NodeType.CONDITIONAL]: 'fas fa-code-branch',
   [NodeType.VARIABLE]: 'fas fa-database',
   [NodeType.QUESTION]: 'fas fa-question-circle',
+  [NodeType.JAVASCRIPT]: 'fas fa-code',
+  [NodeType.PARALLEL]: 'fas fa-project-diagram', 
+  [NodeType.SYNCHRONIZE]: 'fas fa-hourglass-half', 
   [NodeType.CONCLUSION]: 'fas fa-flag-checkered',
 };
 
 
-const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAreaProps
+const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ 
   nodes,
   visualLinks,
   getLineToRectangleIntersectionPoint,
@@ -33,30 +40,30 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
   onWheel,
   onCanvasMouseDown,
   zoomControls,
-  onNodeTouchStart, // Destructure new prop
+  onNodeTouchStart, 
+  onDeleteNodeRequest, 
 }) => {
 
-  const getNodeById = (id: string): Node | undefined => nodes.find(n => n.id === id); // Kept for links
+  const getNodeById = (id: string): Node | undefined => nodes.find(n => n.id === id); 
 
   return (
-    <main 
-      ref={editorAreaRef} 
-      className="flex-1 bg-slate-850 p-0 relative overflow-hidden custom-scroll touch-none" // Added touch-none to prevent browser default touch actions like scroll/zoom on canvas itself
-      style={{ 
-          backgroundImage: `radial-gradient(${getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-slate-700') || '#374151'} 1px, transparent 1px)`, 
+    <main
+      ref={editorAreaRef}
+      className="flex-1 bg-slate-850 p-0 relative overflow-hidden custom-scroll" 
+      style={{
+          backgroundImage: `radial-gradient(${getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-slate-700') || '#374151'} 1px, transparent 1px)`,
           backgroundSize: `${GRID_CELL_SIZE}px ${GRID_CELL_SIZE}px`,
-          cursor: 'grab' 
+          cursor: 'grab'
       }}
       onWheel={onWheel}
-      onMouseDown={onCanvasMouseDown} 
-      // Touch events for canvas pan/zoom are handled by useCanvasPanZoom directly on editorAreaRef
+      onMouseDown={onCanvasMouseDown}
     >
-      <div 
+      <div
         ref={canvasContentRef}
-        className="absolute top-0 left-0" 
-        style={{ 
+        className="absolute top-0 left-0"
+        style={{
             transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-            transformOrigin: '0 0', 
+            transformOrigin: '0 0',
         }}
       >
         {nodes.map(node => {
@@ -74,16 +81,18 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
             const nodeBaseColorClass = NODE_COLORS[node.type] || NODE_COLORS.PROMPT;
             const borderColorClass = node.isRunning ? 'border-purple-500 animate-pulse' : (node.hasError ? 'border-red-500' : 'border-transparent');
             const finalNodeClass = `${nodeBaseColorClass} ${borderColorClass}`;
-            
-            // Simplified title for 'title' attribute, actual content displayed below
+
             let nodeHoverTitle = node.name || node.type;
             if (node.type === NodeType.CONCLUSION) nodeHoverTitle += `: ${node.prompt || INITIAL_CONCLUSION_NODE_TITLE}`;
             else if (node.type === NodeType.VARIABLE) nodeHoverTitle += `: Stores as {${node.name}}`;
             else if (node.type === NodeType.QUESTION) nodeHoverTitle += `: ${node.prompt || INITIAL_QUESTION_NODE_PROMPT}`;
+            else if (node.type === NodeType.JAVASCRIPT) nodeHoverTitle += `: JS Function (${node.prompt || 'No description'})`;
+            else if (node.type === NodeType.PARALLEL) nodeHoverTitle += `: ${node.prompt || INITIAL_PARALLEL_NODE_DESCRIPTION}`;
+            else if (node.type === NodeType.SYNCHRONIZE) nodeHoverTitle += `: ${node.prompt || INITIAL_SYNCHRONIZE_NODE_DESCRIPTION}`;
             else nodeHoverTitle += `: ${node.prompt || '(No prompt)'}`;
 
 
-            const iconClass = NODE_ICONS[node.type] || 'fas fa-cog'; // Default icon if somehow type is missing from map
+            const iconClass = NODE_ICONS[node.type] || 'fas fa-cog'; 
 
             return (
             <div
@@ -91,14 +100,12 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
               className={`node-${node.id} absolute rounded-lg shadow-xl p-3 border-2 ${finalNodeClass} transition-all duration-150 cursor-grab flex flex-col justify-between items-center`}
               style={{ left: node.position.x, top: node.position.y, width: NODE_WIDTH, height: NODE_HEIGHT }}
               onMouseDown={(e) => onNodeMouseDown(node.id, e)}
-              onTouchStart={(e) => onNodeTouchStart(node.id, e)} // Added touch start handler
-              title={nodeHoverTitle} // Use the generated hover title
-              // Prevent canvas pan/zoom when interacting directly with a node via touch
-              // This is implicitly handled by onNodeTouchStart stopping propagation.
+              onTouchStart={(e) => onNodeTouchStart(node.id, e)} 
+              title={nodeHoverTitle} 
             >
             <div className="w-full">
                 <div className="flex items-center justify-between w-full mb-1">
-                    <div className="flex items-center overflow-hidden"> {/* Group icon and name, allow name to truncate */}
+                    <div className="flex items-center overflow-hidden"> 
                         <i className={`${iconClass} text-white mr-2 text-base`} aria-hidden="true"></i>
                         <h4 className="font-bold text-sm text-white truncate">
                              {node.name || node.type.charAt(0).toUpperCase() + node.type.slice(1).toLowerCase().replace('_', ' ')}
@@ -106,10 +113,11 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
                     </div>
                     {node.type !== NodeType.START &&
                         <button
-                            className="node-delete-button text-red-300 hover:text-red-100 text-xs p-0.5 rounded-full hover:bg-red-500/50 z-10" // Removed absolute, top, right as flex will handle
+                            className="node-delete-button text-red-300 hover:text-red-100 text-xs p-0.5 rounded-full hover:bg-red-500/50 z-10" 
                             aria-label={`Delete node ${node.name || node.type}`}
-                            onMouseDown={(e) => e.stopPropagation()} 
-                            onTouchStart={(e) => e.stopPropagation()} // Prevent node drag on delete
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()} 
+                            onClick={(e) => onDeleteNodeRequest(node.id, e as unknown as React.MouseEvent | React.TouchEvent)} 
                         >
                             <i className="fas fa-times"></i>
                         </button>
@@ -138,12 +146,37 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
                 ) : node.type === NodeType.QUESTION ? (
                      <div className="text-xs text-slate-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
                         <p className="font-semibold italic line-clamp-2">Q: {node.prompt || INITIAL_QUESTION_NODE_PROMPT}</p>
-                        {node.isRunning ? 
+                        {node.isRunning ?
                              <p className="mt-1 text-yellow-300">(Awaiting user input...)</p>
                            : (node.lastRunOutput ?
                                 <p className="mt-1 text-green-300">Last Answer: {node.lastRunOutput}</p> :
                                 <p className="mt-1 text-slate-400">(No answer yet)</p>
                         )}
+                    </div>
+                ) : node.type === NodeType.JAVASCRIPT ? (
+                     <div className="text-xs text-slate-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                        <p className="font-semibold italic line-clamp-2">JS: {node.prompt || '(No description)'}</p>
+                         {node.isRunning ?
+                             <p className="mt-1 text-yellow-300">(Executing JS...)</p> :
+                           (node.lastRunOutput ?
+                                <p className="mt-1 text-green-300">Output: {node.lastRunOutput}</p> :
+                                <p className="mt-1 text-slate-400">(No output yet)</p>
+                        )}
+                    </div>
+                ) : node.type === NodeType.PARALLEL ? (
+                     <div className="text-xs text-slate-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                        <p className="font-semibold italic line-clamp-2">Parallel: {node.prompt || INITIAL_PARALLEL_NODE_DESCRIPTION}</p>
+                        {node.isRunning && <p className="mt-1 text-yellow-300">(Forking paths...)</p>}
+                        {/* Parallel nodes don't typically show a single "last output" in the same way */}
+                        {node.parallelNextNodeIds && node.parallelNextNodeIds.length > 0 &&
+                            <p className="mt-1 text-slate-400 text-xxs">Paths: {node.parallelNextNodeIds.length}</p>
+                        }
+                    </div>
+                ) : node.type === NodeType.SYNCHRONIZE ? (
+                     <div className="text-xs text-slate-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                        <p className="font-semibold italic line-clamp-2">Sync: {node.prompt || INITIAL_SYNCHRONIZE_NODE_DESCRIPTION}</p>
+                        {node.isRunning && <p className="mt-1 text-yellow-300">(Synchronizing...)</p>}
+                        {node.lastRunOutput && <p className="mt-1 text-green-300">Output: {node.lastRunOutput}</p>}
                     </div>
                 ) : ( // START or PROMPT or CONDITIONAL
                     <p className="text-xs text-slate-200 h-10 overflow-y-auto custom-scroll line-clamp-3 w-full text-center px-1">
@@ -151,7 +184,7 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
                     </p>
                 )}
             </div>
-            {(node.type !== NodeType.CONCLUSION && node.type !== NodeType.VARIABLE && node.type !== NodeType.QUESTION) && node.lastRunOutput && (
+            {(node.type !== NodeType.CONCLUSION && node.type !== NodeType.VARIABLE && node.type !== NodeType.QUESTION && node.type !== NodeType.JAVASCRIPT && node.type !== NodeType.PARALLEL && node.type !== NodeType.SYNCHRONIZE) && node.lastRunOutput && (
                 <div className="mt-auto pt-1 border-t border-slate-500/50 w-full overflow-hidden">
                     <p className={`text-xs ${node.hasError ? 'text-red-300' : 'text-green-300'} truncate text-center`}>Last Out: {node.lastRunOutput}</p>
                 </div>
@@ -159,9 +192,9 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
             </div>
         );})}
 
-        <svg 
-            className="absolute top-0 left-0 pointer-events-none" 
-            style={{ width: '10000px', height: '10000px' }} 
+        <svg
+            className="absolute top-0 left-0 pointer-events-none"
+            style={{ width: '10000px', height: '10000px' }}
             aria-hidden="true"
         >
             <defs>
@@ -188,15 +221,17 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
             const curveFactor = 0.2;
             let midX = startPoint.x + dx * 0.5;
             let midY = startPoint.y + dy * 0.5;
-            const normalX = -dy * curveFactor; 
-            const normalY = dx * curveFactor;  
-            
+            const normalX = -dy * curveFactor;
+            const normalY = dx * curveFactor;
+
             let cpX = midX + normalX;
             let cpY = midY + normalY;
-            
-            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) { 
-                cpX += 20; cpY += 20; 
+
+            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) { // Nodes are overlapping or very close, add more curve
+                cpX += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalX || 1); // Add more significant curve
+                cpY += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalY || 1);
             }
+
 
             const path = `M ${startPoint.x},${startPoint.y} Q ${cpX},${cpY} ${endPoint.x},${endPoint.y}`;
             const labelX = 0.25 * startPoint.x + 0.5 * cpX + 0.25 * endPoint.x;
@@ -206,12 +241,12 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ // Use ExtendedCanvasAr
                 <g key={link.id}>
                 <path d={path} stroke="#0EA5E9" strokeWidth="2" fill="none" markerEnd="url(#arrowhead)" />
                 {link.condition && (
-                    <text 
-                        x={labelX} 
-                        y={labelY - 5} 
-                        fill="#94A3B8" 
-                        fontSize="10px" 
-                        textAnchor="middle" 
+                    <text
+                        x={labelX}
+                        y={labelY - 5}
+                        fill="#94A3B8"
+                        fontSize="10px"
+                        textAnchor="middle"
                         className="pointer-events-auto"
                     >
                     {link.condition}

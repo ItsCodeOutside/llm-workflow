@@ -1,7 +1,7 @@
 
 // src/components/ZoomControls.tsx
 import React from 'react';
-import type { ZoomControlsProps } from '../../types';
+import type { ZoomControlsProps } from '../types';
 
 const ZoomControls: React.FC<ZoomControlsProps> = ({ 
     scale, 

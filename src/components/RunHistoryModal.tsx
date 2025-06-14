@@ -1,14 +1,14 @@
 // src/components/RunHistoryModal.tsx
 import React from 'react';
 import Modal from './Modal';
-import type { ProjectRun, RunHistoryModalProps } from '../../types';
+import type { ProjectRun, RunHistoryModalProps } from '../types'; // Updated path
 
 const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ runHistory, isOpen, onClose }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Project Run History" widthClass="sm:max-w-4xl">
       <div className="max-h-[70vh] overflow-y-auto space-y-4 custom-scroll">
         {runHistory.length === 0 && <p className="text-slate-400">No runs recorded yet.</p>}
-        {runHistory.slice().reverse().map((run: ProjectRun) => ( // Explicitly type run
+        {runHistory.slice().reverse().map((run: ProjectRun) => ( 
           <div key={run.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4">
             <div className="mb-2 flex flex-wrap justify-between items-center text-sm text-slate-400 gap-x-4 gap-y-1">
               <span>Run ID: {run.id.substring(0,6)}</span>

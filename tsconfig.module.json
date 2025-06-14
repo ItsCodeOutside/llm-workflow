@@ -1,0 +1,36 @@
+
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "lib": ["ES2020", "DOM"],
+    "outDir": "./dist-module",
+    "rootDir": ".", 
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "baseUrl": "." 
+  },
+  "include": [
+    "src/llm-workflow-engine.ts",
+    "src/utils/workflowExecutorService.ts",
+    "src/utils.ts",
+    "src/llmService.ts",
+    "src/engineTypes.ts",
+    "src/constants.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist-module",
+    "src/types.ts", 
+    "src/components",
+    "src/pages",
+    "src/hooks", 
+    "App.tsx",
+    "index.tsx"
+  ]
+}

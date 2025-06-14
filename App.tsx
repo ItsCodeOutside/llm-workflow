@@ -8,8 +8,8 @@ import { LocalStorageService } from './src/services';
 import HomePage from './src/pages/HomePage';
 import ProjectEditorPage from './src/pages/ProjectEditorPage';
 
-import type { AppSettings, Project } from './types'; // Ensured relative path
-import { DEFAULT_APP_SETTINGS } from './constants';
+import type { AppSettings, Project } from './src/types'; // Updated path
+import { DEFAULT_APP_SETTINGS } from './src/constants'; // Updated path
 
 
 const App: React.FC = () => {
@@ -48,12 +48,8 @@ const App: React.FC = () => {
   }, []);
 
   const getProjectByIdCb = useCallback((projectId: string): Project | undefined => {
-    // Ensure we are reading from the latest state when this is called
-    // This might be an issue if 'projects' state captured by this callback is stale.
-    // A potentially safer way or alternative is to pass projects state directly or use a ref if performance becomes an issue.
-    // However, for typical scenarios, React's state updates should provide the correct 'projects' array.
     return projects.find(p => p.id === projectId);
-  }, [projects]); // Add projects to dependency array
+  }, [projects]); 
 
   return (
     <AppSettingsContext.Provider value={{ appSettings, setAppSettings: setAppSettingsCb }}>

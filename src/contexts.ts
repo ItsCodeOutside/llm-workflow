@@ -1,6 +1,6 @@
 // src/contexts.ts
 import { createContext } from 'react';
-import type { AppSettings, Project } from '../types';
+import type { AppSettings, Project } from './types'; // Updated path
 
 export interface AppSettingsContextType {
   appSettings: AppSettings;

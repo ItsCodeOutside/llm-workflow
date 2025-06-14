@@ -2,7 +2,7 @@
 // src/components/ExportProjectModal.tsx
 import React, { useState } from 'react';
 import Modal from './Modal';
-import type { ExportProjectModalProps } from '../../types';
+import type { ExportProjectModalProps } from '../types';
 
 const ExportProjectModal: React.FC<ExportProjectModalProps> = ({ isOpen, onClose, projectJson, projectName }) => {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');

@@ -1,7 +1,7 @@
 // src/components/ConclusionOutputModal.tsx
 import React from 'react';
 import Modal from './Modal';
-import type { ConclusionOutputModalProps } from '../../types';
+import type { ConclusionOutputModalProps } from '../types'; // Updated path
 
 const ConclusionOutputModal: React.FC<ConclusionOutputModalProps> = ({ isOpen, data, onClose }) => {
   if (!isOpen || !data) return null;

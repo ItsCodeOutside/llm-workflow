@@ -18,7 +18,7 @@ export const useProjects = (): ProjectsContextType => {
 export { useProjectStateManagement } from './hooks/useProjectStateManagement';
 export { useNodeManagement } from './hooks/useNodeManagement';
 export { useNodeDragging } from './hooks/useNodeDragging';
-export { useWorkflowExecution } from './hooks/useWorkflowExecution';
+export { useWorkflowExecution } from './hooks/workflow/useWorkflowExecution'; // Corrected path
 export { useEditorModals } from './hooks/useEditorModals';
 export { useVisualLinks } from './hooks/useVisualLinks';
 export { useCanvasPanZoom } from './hooks/useCanvasPanZoom';

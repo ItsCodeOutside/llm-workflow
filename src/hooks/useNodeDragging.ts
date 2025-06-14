@@ -1,12 +1,12 @@
 // src/hooks/useNodeDragging.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Node, Project } from '../../types';
-import { GRID_CELL_SIZE, MAX_CLICK_MOVEMENT } from '../../constants';
+import type { Node, Project } from '../types'; // Updated path
+import { GRID_CELL_SIZE, MAX_CLICK_MOVEMENT } from '../constants'; // Updated path
 import { getValidNodes } from '../utils';
 
-const LONG_PRESS_DURATION = 500; // ms
-const DOUBLE_TAP_THRESHOLD = 300; // ms
-const TOUCH_MOVE_THRESHOLD = 10; // pixels
+const LONG_PRESS_DURATION = 500; 
+const DOUBLE_TAP_THRESHOLD = 300; 
+const TOUCH_MOVE_THRESHOLD = 10; 
 
 interface UseNodeDraggingProps {
   currentProject: Project | null;
@@ -33,12 +33,10 @@ export const useNodeDragging = ({
 }: UseNodeDraggingProps) => {
   const [draggingNode, setDraggingNode] = useState<{ id: string; offset: { x: number; y: number }; method: 'mouse' | 'touch' } | null>(null);
   
-  // Mouse dragging state
   const dragStartScreenPosRef = useRef<{ x: number; y: number } | null>(null);
   const isActuallyMouseDraggingRef = useRef(false);
 
-  // Touch interaction state
-  const longPressTimeoutRef = useRef<number | null>(null); // Changed NodeJS.Timeout to number
+  const longPressTimeoutRef = useRef<number | null>(null); 
   const lastTapTimeRef = useRef(0);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const currentTouchNodeIdRef = useRef<string | null>(null);
@@ -62,7 +60,6 @@ export const useNodeDragging = ({
   }, [currentProject, editorAreaRef, scale, translate]);
 
 
-  // --- Mouse Drag Logic ---
   const handleNodeMouseDown = useCallback((nodeId: string, e: React.MouseEvent) => {
     const targetElement = e.target as HTMLElement;
     if (targetElement.closest('.node-delete-button')) return;
@@ -71,7 +68,7 @@ export const useNodeDragging = ({
     dragStartScreenPosRef.current = { x: e.clientX, y: e.clientY };
     isActuallyMouseDraggingRef.current = false;
     startDrag(nodeId, e.clientX, e.clientY, 'mouse');
-    e.preventDefault(); // Prevent text selection, etc.
+    e.preventDefault(); 
   }, [deleteActionInitiated, startDrag]);
 
   const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
@@ -114,10 +111,6 @@ export const useNodeDragging = ({
     if (deleteActionInitiated) {
       setDeleteActionInitiated(false);
     } else if (!isActuallyMouseDraggingRef.current) {
-      // This was a click, not a drag. For mouse, double-click might be preferred for edit if single click is for selection.
-      // However, user asked for double-tap for mobile. For consistency, let's make double-click edit for mouse too.
-      // The current logic opens modal on simple click. If we want double-click, this needs to change.
-      // For now, let's keep single-click-opens-modal for mouse, and double-tap for touch.
       const clickedNode = getValidNodes(currentProject.nodes).find(n => n.id === draggingNode.id);
       if (clickedNode) {
         setSelectedNodeState(clickedNode);
@@ -145,41 +138,37 @@ export const useNodeDragging = ({
   }, [draggingNode, handleGlobalMouseMove, handleGlobalMouseUp]);
 
 
-  // --- Touch Drag & Tap Logic ---
   const handleNodeTouchStart = useCallback((nodeId: string, e: React.TouchEvent) => {
-    if (e.touches.length !== 1) return; // Only handle single touch for node interactions
+    if (e.touches.length !== 1) return; 
     const touch = e.touches[0];
-    currentTouchNodeIdRef.current = nodeId; // Store nodeId for touch end
+    currentTouchNodeIdRef.current = nodeId; 
     
     const targetElement = e.target as HTMLElement;
     if (targetElement.closest('.node-delete-button')) return;
     if (deleteActionInitiated) { e.preventDefault(); return; }
 
-    e.stopPropagation(); // Prevent canvas pan/zoom while interacting with node
+    e.stopPropagation(); 
 
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
 
-    // Double tap detection
     const currentTime = Date.now();
     if (currentTime - lastTapTimeRef.current < DOUBLE_TAP_THRESHOLD) {
       if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
-      lastTapTimeRef.current = 0; // Reset for next double tap
+      lastTapTimeRef.current = 0; 
       
       const nodeToEdit = getValidNodes(currentProject?.nodes).find(n => n.id === nodeId);
       if (nodeToEdit) {
         setSelectedNodeState(nodeToEdit);
         setIsNodeModalOpen(true);
       }
-      return; // Double tap handled
+      return; 
     }
-    // Not a double tap, set time for potential next tap.
     lastTapTimeRef.current = currentTime;
 
 
-    // Long press for drag
     if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
-    longPressTimeoutRef.current = window.setTimeout(() => { // Use window.setTimeout for browser context
-      if (touchStartPosRef.current) { // Check if touch is still active and hasn't moved much
+    longPressTimeoutRef.current = window.setTimeout(() => { 
+      if (touchStartPosRef.current) { 
          startDrag(nodeId, touchStartPosRef.current.x, touchStartPosRef.current.y, 'touch');
       }
       longPressTimeoutRef.current = null;
@@ -188,7 +177,7 @@ export const useNodeDragging = ({
   }, [deleteActionInitiated, startDrag, currentProject, setSelectedNodeState, setIsNodeModalOpen]);
 
   const handleGlobalTouchMove = useCallback((e: TouchEvent) => {
-    if (e.touches.length !== 1) return; // Only handle single touch moves
+    if (e.touches.length !== 1) return; 
     const touch = e.touches[0];
 
     if (longPressTimeoutRef.current && touchStartPosRef.current) {
@@ -201,7 +190,7 @@ export const useNodeDragging = ({
     }
     
     if (draggingNode && draggingNode.method === 'touch' && currentProject && editorAreaRef.current) {
-      e.preventDefault(); // Prevent page scroll if dragging a node
+      e.preventDefault(); 
       const editorRect = editorAreaRef.current.getBoundingClientRect();
       const worldMouseX = (touch.clientX - editorRect.left - translate.x) / scale;
       const worldMouseY = (touch.clientY - editorRect.top - translate.y) / scale;
@@ -222,7 +211,6 @@ export const useNodeDragging = ({
   }, [draggingNode, currentProject, setCurrentProject, editorAreaRef, scale, translate]);
 
   const handleGlobalTouchEnd = useCallback((e: TouchEvent) => {
-     // Check if the touch end corresponds to the node we were interacting with
     if (currentTouchNodeIdRef.current === null && !draggingNode) return;
 
     if (longPressTimeoutRef.current) {
@@ -238,16 +226,12 @@ export const useNodeDragging = ({
     }
     
     touchStartPosRef.current = null;
-    currentTouchNodeIdRef.current = null; // Reset after handling
+    currentTouchNodeIdRef.current = null; 
   }, [deleteActionInitiated, setDeleteActionInitiated, draggingNode]);
 
   useEffect(() => {
-    // Add global touchmove and touchend listeners when a touch starts on a node
-    // or when a drag is active. This helps capture movement/release outside the node element.
-    // This is a simplified approach; more robust would be conditional on currentTouchNodeIdRef.current being set
-    // or draggingNode.method === 'touch'.
     if (currentTouchNodeIdRef.current || (draggingNode && draggingNode.method === 'touch')) {
-        document.addEventListener('touchmove', handleGlobalTouchMove, { passive: false }); // passive: false to allow preventDefault
+        document.addEventListener('touchmove', handleGlobalTouchMove, { passive: false }); 
         document.addEventListener('touchend', handleGlobalTouchEnd);
         document.addEventListener('touchcancel', handleGlobalTouchEnd);
     } else {
@@ -264,6 +248,6 @@ export const useNodeDragging = ({
 
   return {
     handleNodeMouseDown,
-    handleNodeTouchStart, // Expose this for nodes to attach
+    handleNodeTouchStart, 
   };
 };

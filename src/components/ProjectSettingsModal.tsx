@@ -1,11 +1,10 @@
 // src/components/ProjectSettingsModal.tsx
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import type { ProjectSettingsModalProps, Project, ProjectVariable } from '../../types';
-import { generateId, sanitizeVariableName } from '../utils'; // Import sanitizeVariableName
+import type { ProjectSettingsModalProps, Project, ProjectVariable } from '../types'; // Updated path
+import { generateId, sanitizeVariableName } from '../utils'; 
 
 const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, isOpen, onClose, onSave }) => {
-  // Local state for editing
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [author, setAuthor] = useState('');
@@ -17,7 +16,6 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
       setName(project.name);
       setDescription(project.description);
       setAuthor(project.author);
-      // Sanitize existing project variable names on load
       setProjectVariables(
         project.projectVariables 
         ? [...project.projectVariables.map(v => ({...v, name: sanitizeVariableName(v.name)}))] 
@@ -27,10 +25,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
   }, [project, isOpen]);
 
   useEffect(() => {
-    // Validate to enable/disable save button
-    let disabled = !name.trim(); // Project name is required
+    let disabled = !name.trim(); 
     projectVariables.forEach(pv => {
-      // Each variable must have a name that is valid after sanitization and not empty.
       if (!pv.name.trim() || pv.name !== sanitizeVariableName(pv.name)) {
         disabled = true;
       }
@@ -61,27 +57,53 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
 
   const handleSave = () => {
     if (isSaveDisabled) return;
-
-    // Ensure all variables are sanitized and valid before saving
     const sanitizedProjectVariables = projectVariables.map(pv => ({
       ...pv,
       name: sanitizeVariableName(pv.name),
-    })).filter(pv => pv.name.trim() !== ''); // Remove any that became empty after sanitization
-
+    })).filter(pv => pv.name.trim() !== ''); 
     onSave({ 
       name, 
       description, 
       author, 
       projectVariables: sanitizedProjectVariables 
     });
+    onClose();
   };
 
   if (!isOpen || !project) return null;
 
+  const footerContent = (
+    <>
+      <button
+        onClick={handleSave}
+        disabled={isSaveDisabled}
+        className={`inline-flex w-full justify-center rounded-md px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 sm:ml-3 sm:w-auto sm:text-sm ${
+          isSaveDisabled
+            ? 'bg-slate-500 cursor-not-allowed'
+            : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+        }`}
+      >
+        {isSaveDisabled ? 'Cannot Save (Check Fields)' : 'Save Settings'}
+      </button>
+      <button
+        type="button"
+        className="mt-3 inline-flex w-full justify-center rounded-md bg-slate-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+        onClick={onClose}
+      >
+        Close
+      </button>
+    </>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Project Settings" widthClass="sm:max-w-xl">
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      title="Project Settings" 
+      widthClass="sm:max-w-xl"
+      footerContent={footerContent}
+    >
       <div className="space-y-6 text-slate-300">
-        {/* Basic Project Info */}
         <section>
           <h4 className="text-md font-semibold text-sky-400 mb-2">Basic Information</h4>
           <div className="space-y-3">
@@ -102,7 +124,6 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
 
         <hr className="border-slate-700"/>
 
-        {/* Project-Wide Variables */}
         <section>
           <h4 className="text-md font-semibold text-sky-400 mb-2">Project-Wide Variables</h4>
           <p className="text-xs text-slate-400 mb-1">Define variables accessible throughout your project (e.g., <code className="bg-slate-700 p-0.5 rounded text-xs">{'{my_project_var}'}</code>).</p>
@@ -120,7 +141,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
                     onChange={(e) => handleVariableChange(index, 'name', e.target.value)}
                     className="block w-full rounded-md border-slate-600 bg-slate-650 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm placeholder-slate-400"
                   />
-                  { (pv.name !== sanitizeVariableName(pv.name) || !pv.name.trim()) && isOpen && /* Show error only when modal is open and name is invalid */
+                  { (pv.name !== sanitizeVariableName(pv.name) || !pv.name.trim()) && isOpen &&
                     <p className="text-xs text-red-400 mt-1">Name must be alphanumeric (plus underscore) and cannot be empty.</p>
                   }
                 </div>
@@ -152,14 +173,6 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
             <i className="fas fa-plus mr-2"></i>Add Variable
           </button>
         </section>
-        
-        <button 
-          onClick={handleSave} 
-          disabled={isSaveDisabled}
-          className={`w-full rounded-md px-4 py-2 font-medium text-white ${isSaveDisabled ? 'bg-slate-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-        >
-          {isSaveDisabled ? 'Cannot Save (Check Fields)' : 'Save Settings'}
-        </button>
       </div>
     </Modal>
   );

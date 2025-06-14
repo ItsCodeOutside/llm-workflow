@@ -1,0 +1,26 @@
+import { AppSettings } from './engineTypes';
+export declare const DEFAULT_APP_SETTINGS: AppSettings;
+export declare const ALLOWED_CHATGPT_TEXT_MODELS: string[];
+export declare const MAX_RUN_HISTORY = 20;
+export declare const NODE_WIDTH = 200;
+export declare const NODE_HEIGHT = 120;
+export declare const GRID_CELL_SIZE = 20;
+export declare const MAX_CLICK_MOVEMENT = 5;
+export declare const MAX_PARALLEL_BRANCHES = 4;
+export declare const LOCAL_STORAGE_PROJECTS_KEY = "llmWorkflowProjects";
+export declare const LOCAL_STORAGE_SETTINGS_KEY = "llmWorkflowAppSettings";
+export declare const NODE_COLORS: {
+    [key: string]: string;
+};
+export declare const INITIAL_START_NODE_PROMPT = "";
+export declare const INITIAL_NODE_NAME = "";
+export declare const INITIAL_NODE_PROMPT = "";
+export declare const INITIAL_CONCLUSION_NODE_TITLE = "Final Output";
+export declare const INITIAL_VARIABLE_NODE_NAME = "myVariable";
+export declare const INITIAL_QUESTION_NODE_PROMPT = "Please provide your input:";
+export declare const INITIAL_JAVASCRIPT_NODE_NAME = "JavaScript Function";
+export declare const INITIAL_JAVASCRIPT_NODE_CODE = "// Available variables:\n// - previousOutput (string): Output from the previous node.\n// - nodeVariables (object): Key-value pairs from Variable Nodes.\n// - projectVariables (object): Key-value pairs from Project Settings.\n// Your function must be an async function body.\n// Example:\n// const combinedOutput = `Prev: ${previousOutput}, MyVar: ${nodeVariables.my_var || 'N/A'}`;\n// return combinedOutput;\n\nreturn previousOutput;";
+export declare const INITIAL_PARALLEL_NODE_NAME = "Parallel Split";
+export declare const INITIAL_PARALLEL_NODE_DESCRIPTION = "Executes multiple downstream paths concurrently.";
+export declare const INITIAL_SYNCHRONIZE_NODE_NAME = "Synchronize Paths";
+export declare const INITIAL_SYNCHRONIZE_NODE_DESCRIPTION = "Waits for parallel paths to complete before continuing.";

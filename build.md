@@ -16,27 +16,19 @@ This project is designed as a client-side application and can be run directly in
 1.  **Download Files**:
     *   Ensure you have all the project files (`index.html`, `index.tsx`, `App.tsx`, `types.ts`, `constants.ts`, `llmService.ts`, and all files within the `src/` directory) in a single directory structure as provided.
 
-2.  **Option A: Using a Simple HTTP Server (Recommended)**
-    *   This method avoids potential CORS issues or restrictions that some browsers might impose when loading modules directly from the `file:///` protocol.
+2.  **Build the Project**:
+    * Change to the project's main directory and run `npm install` followed by `npm run build`
+    * (Optional) You can also try building the module for the workflow execution engine by switching to `/src` and running `npm run build:module`
+
+2.  **Use a Simple HTTP Server (Recommended)**
+    *   This method runs the project under _localhost_ which can introduce a number of CORS issues.
 
     *   **Using Python's HTTP Server**:
         *   Open your terminal or command prompt.
-        *   Navigate to the root directory where `index.html` is located.
+        *   Navigate to the build output folder, `/dist/`
         *   If you have Python 3, run: `python -m http.server`
-        *   If you have Python 2, run: `python -m SimpleHTTPServer`
+            * **NOTE:** the command may be `python3 -m http.server` (note the '3').
         *   The server will usually start on `http://localhost:8000`. Open this URL in your browser.
-
-    *   **Using Node.js `http-server`**:
-        *   If you don't have `http-server` installed, install it globally: `npm install -g http-server`
-        *   Open your terminal or command prompt.
-        *   Navigate to the root directory where `index.html` is located.
-        *   Run: `http-server`
-        *   The server will typically start on `http://localhost:8080` (or another port if 8080 is busy). Open the provided URL in your browser.
-
-3.  **Option B: Opening `index.html` Directly (May have limitations)**
-    *   Navigate to the project directory in your file explorer.
-    *   Double-click the `index.html` file, or right-click and choose "Open with" your preferred web browser.
-    *   **Note**: Due to browser security policies regarding ES modules loaded via `file:///` protocol, this method might not work reliably in all browsers or might have limitations. Using a local HTTP server is generally more robust for development.
 
 4.  **Configure API Key (for ChatGPT)**:
     *   Once the application is open in your browser:

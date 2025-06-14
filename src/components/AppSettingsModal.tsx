@@ -1,12 +1,12 @@
-
 // src/components/AppSettingsModal.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
-import { LLMProvider, type AppSettings, type AppSettingsModalProps } from '../../types';
-import { DEFAULT_APP_SETTINGS, ALLOWED_CHATGPT_TEXT_MODELS } from '../../constants'; // Removed ALLOWED_GEMINI_TEXT_MODELS
+import { LLMProvider, type AppSettings, type AppSettingsModalProps } from '../types'; // Updated path
+import { DEFAULT_APP_SETTINGS, ALLOWED_CHATGPT_TEXT_MODELS } from '../constants'; // Updated path
 
 interface OllamaModelInfo {
   name: string;
+  // eslint-disable-next-line camelcase
   modified_at: string;
   size: number;
   digest: string;
@@ -14,7 +14,9 @@ interface OllamaModelInfo {
     format: string;
     family: string;
     families: string[] | null;
+    // eslint-disable-next-line camelcase
     parameter_size: string;
+    // eslint-disable-next-line camelcase
     quantization_level: string;
   };
 }
@@ -26,38 +28,22 @@ interface OllamaTagsResponse {
 const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, onClose, onSave }) => {
   const [editableSettings, setEditableSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
 
-  // Ollama specific state
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [isFetchingOllamaModels, setIsFetchingOllamaModels] = useState<boolean>(false);
   const [ollamaFetchError, setOllamaFetchError] = useState<string | null>(null);
 
-  // ChatGPT specific state
   const [chatGptModelsList, setChatGptModelsList] = useState<string[]>([]);
   const [isFetchingChatGptModels, setIsFetchingChatGptModels] = useState<boolean>(false);
   const [chatGptFetchError, setChatGptFetchError] = useState<string | null>(null);
-
-  // Gemini specific state (Removed)
-  // const [geminiModelsList, setGeminiModelsList] = useState<string[]>([]);
-
 
   useEffect(() => {
     const initialSettings = { ...DEFAULT_APP_SETTINGS, ...settings };
     setEditableSettings(initialSettings);
 
-    // Removed Gemini model list initialization
-    // setGeminiModelsList([...ALLOWED_GEMINI_TEXT_MODELS]);
-    // if (initialSettings.llmProvider === LLMProvider.GEMINI) {
-    //     if (ALLOWED_GEMINI_TEXT_MODELS.length > 0 && !ALLOWED_GEMINI_TEXT_MODELS.includes(initialSettings.geminiModel)) {
-    //         setEditableSettings(prev => ({...prev, geminiModel: ALLOWED_GEMINI_TEXT_MODELS[0]}));
-    //     }
-    // }
-
-    if (!isOpen) { // Reset fetch-related states when modal closes
-      // Ollama
+    if (!isOpen) { 
       setOllamaModelsList([]);
       setIsFetchingOllamaModels(false);
       setOllamaFetchError(null);
-      // ChatGPT
       setChatGptModelsList([]);
       setIsFetchingChatGptModels(false);
       setChatGptFetchError(null);
@@ -72,7 +58,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
       processedValue = parseFloat(value);
       if (isNaN(processedValue)) {
          if (name === 'temperature' || name === 'topP') processedValue = 0;
-         else if (name === 'topK') processedValue = 1; // topK still relevant for Ollama
+         else if (name === 'topK') processedValue = 1;
       }
     } else if (name === 'llmProvider') {
       processedValue = value as LLMProvider;
@@ -82,40 +68,35 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
       const newSettings = { ...prev, [name]: processedValue };
 
       if (name === 'ollamaBaseUrl' && prev.ollamaBaseUrl !== processedValue) {
-        setOllamaModelsList([]); // Clear list if base URL changes
+        setOllamaModelsList([]);
         newSettings.ollamaModel = '';
         setOllamaFetchError(null);
       }
 
       if (name === 'llmProvider') {
         const newProvider = processedValue as LLMProvider;
-        // Reset Ollama if switching away
         if (prev.llmProvider === LLMProvider.OLLAMA && newProvider !== LLMProvider.OLLAMA) {
           setOllamaModelsList([]);
           setOllamaFetchError(null);
           setIsFetchingOllamaModels(false);
         }
-        // Reset ChatGPT if switching away
         if (prev.llmProvider === LLMProvider.CHATGPT && newProvider !== LLMProvider.CHATGPT) {
           setChatGptModelsList([]);
           setChatGptFetchError(null);
           setIsFetchingChatGptModels(false);
         }
-        // Removed Gemini state reset logic
-
-        // Handle model selection when switching TO a provider
-        // Removed Gemini case
+        
         if (newProvider === LLMProvider.CHATGPT) {
             if (chatGptModelsList.length > 0 && !chatGptModelsList.includes(newSettings.chatGptModel) ) {
                  newSettings.chatGptModel = chatGptModelsList[0];
             } else if (chatGptModelsList.length === 0) {
-                newSettings.chatGptModel = ''; // Keep this or set to default if available
+                newSettings.chatGptModel = '';
             }
         } else if (newProvider === LLMProvider.OLLAMA) {
              if (ollamaModelsList.length > 0 && !ollamaModelsList.includes(newSettings.ollamaModel) ) {
                  newSettings.ollamaModel = ollamaModelsList[0];
             } else if (ollamaModelsList.length === 0) {
-                newSettings.ollamaModel = ''; // Keep this or set to default if available
+                newSettings.ollamaModel = '';
             }
         }
       }
@@ -127,13 +108,10 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
     setIsFetchingChatGptModels(true);
     setChatGptFetchError(null);
     setChatGptModelsList([]);
-
     await new Promise(resolve => setTimeout(resolve, 300));
-
     try {
       const modelNames = [...ALLOWED_CHATGPT_TEXT_MODELS].sort();
       setChatGptModelsList(modelNames);
-
       if (modelNames.length > 0) {
         setEditableSettings(prev => {
            const currentChatGptModel = prev.chatGptModel;
@@ -155,7 +133,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
     }
   }, []);
 
-
   const handleFetchOllamaModels = useCallback(async (baseUrl?: string) => {
     const urlToFetch = baseUrl || editableSettings.ollamaBaseUrl;
     if (!urlToFetch) {
@@ -165,7 +142,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
     setIsFetchingOllamaModels(true);
     setOllamaFetchError(null);
     setOllamaModelsList([]);
-
     try {
       const response = await fetch(`${urlToFetch.replace(/\/$/, '')}/api/tags`);
       if (!response.ok) {
@@ -175,7 +151,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
       const data: OllamaTagsResponse = await response.json();
       const modelNames = data.models.map(m => m.name).sort();
       setOllamaModelsList(modelNames);
-
       if (modelNames.length > 0) {
         setEditableSettings(prev => {
            const currentOllamaModel = prev.ollamaModel;
@@ -197,20 +172,37 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
     }
   }, [editableSettings.ollamaBaseUrl]);
 
-
   const handleSave = () => {
     onSave(editableSettings);
+    onClose(); 
   };
 
   if (!isOpen) return null;
 
   const currentProvider = editableSettings.llmProvider;
-  let tempMax = "1"; // Default for Ollama
+  let tempMax = "1";
   if (currentProvider === LLMProvider.CHATGPT) tempMax = "2";
 
+  const footerContent = (
+    <>
+      <button
+        onClick={handleSave}
+        className="inline-flex w-full justify-center rounded-md bg-green-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:ml-3 sm:w-auto sm:text-sm"
+      >
+        Save App Settings
+      </button>
+      <button
+        type="button"
+        className="mt-3 inline-flex w-full justify-center rounded-md bg-slate-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-800 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+        onClick={onClose}
+      >
+        Close
+      </button>
+    </>
+  );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Application Settings">
+    <Modal isOpen={isOpen} onClose={onClose} title="Application Settings" footerContent={footerContent}>
       <div className="space-y-4 text-slate-300">
         <div>
           <label htmlFor="llmProvider" className="block text-sm font-medium">LLM Provider</label>
@@ -222,7 +214,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
             className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm"
           >
             <option value={LLMProvider.CHATGPT}>ChatGPT (OpenAI)</option>
-            {/* <option value={LLMProvider.GEMINI}>Gemini (Google)</option> Removed Gemini Option */}
             <option value={LLMProvider.OLLAMA}>Ollama (Local)</option>
           </select>
         </div>
@@ -289,13 +280,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
             </div>
           </div>
         )}
-
-        {/* Removed Gemini Configuration Section */}
-        {/*
-        {editableSettings.llmProvider === LLMProvider.GEMINI && (
-          // ... Gemini settings UI ...
-        )}
-        */}
 
         {editableSettings.llmProvider === LLMProvider.OLLAMA && (
           <div className="space-y-4 p-4 border border-slate-700 rounded-md">
@@ -396,7 +380,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
               />
               <p className="mt-1 text-xs text-slate-400">Nucleus sampling: considers tokens with top_p probability mass.</p>
             </div>
-            { (editableSettings.llmProvider === LLMProvider.OLLAMA) && ( // Removed Gemini from condition
+            { (editableSettings.llmProvider === LLMProvider.OLLAMA) && (
                  <div>
                     <label htmlFor="topK" className="block text-sm font-medium">Top K</label>
                     <input type="number" name="topK" id="topK" value={editableSettings.topK} onChange={handleChange} step="1" min="1" className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm" />
@@ -404,8 +388,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ settings, isOpen, o
                 </div>
             )}
         </div>
-
-        <button onClick={handleSave} className="w-full rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700">Save App Settings</button>
       </div>
     </Modal>
   );

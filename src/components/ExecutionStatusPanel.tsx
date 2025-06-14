@@ -1,13 +1,13 @@
 // src/components/ExecutionStatusPanel.tsx
 import React, { useEffect, useRef } from 'react';
-import type { Node, NodeExecutionLog } from '../../types';
+import type { Node, NodeExecutionLog } from '../types'; // Updated path
 import { useIsMobile } from '../hooks/useIsMobile';
 
 
 interface ExecutionStatusPanelProps {
   logs: NodeExecutionLog[];
   currentExecutingNodeId: string | null;
-  nodes: Node[]; // To get node names if not in log
+  nodes: Node[]; 
   runStartTime: number | null;
   runEndTime: number | null;
   totalTokensThisRun: number;
@@ -23,7 +23,6 @@ const ExecutionStatusPanel: React.FC<ExecutionStatusPanelProps> = ({
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    // Scroll to bottom when new logs are added or panel is opened
     if (isOpen && panelRef.current) {
       panelRef.current.scrollTop = panelRef.current.scrollHeight;
     }
@@ -60,9 +59,8 @@ const ExecutionStatusPanel: React.FC<ExecutionStatusPanelProps> = ({
   const currentExecutingNode = currentExecutingNodeId ? nodes.find(n => n.id === currentExecutingNodeId) : null;
   const runDuration = runStartTime && runEndTime ? ((runEndTime - runStartTime) / 1000).toFixed(2) + 's' : (runStartTime ? 'Running...' : '-');
 
-  // Adjust max height for mobile vs desktop
   const panelMaxHeightClass = isOpen 
-    ? (isMobile ? 'max-h-48 sm:max-h-72' : 'max-h-72') // Smaller max-h on mobile when open
+    ? (isMobile ? 'max-h-48 sm:max-h-72' : 'max-h-72') 
     : 'max-h-12 hover:max-h-14';
   
   const contentMaxHeight = isMobile ? 'max-h-[calc(12rem-3rem)] sm:max-h-[calc(18rem-3rem)]' : 'max-h-[calc(18rem-3rem)]';

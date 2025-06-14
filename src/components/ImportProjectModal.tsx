@@ -2,7 +2,7 @@
 // src/components/ImportProjectModal.tsx
 import React, { useState } from 'react';
 import Modal from './Modal';
-import type { ImportProjectModalProps } from '../../types';
+import type { ImportProjectModalProps } from '../types';
 
 const ImportProjectModal: React.FC<ImportProjectModalProps> = ({ isOpen, onClose, onImport, errorMessage }) => {
   const [jsonInput, setJsonInput] = useState('');

@@ -1,20 +1,20 @@
 {
-  "name": "llm-interactive-workflow",
-  "private": true,
+  "name": "llm-interactive-workflow-app",
+  "version": "1.0.0",
+  "description": "LLM Interactive Workflow application and its exportable Node.js engine.",
   "homepage": "https://itscodeoutside.github.io/llm-workflow/",
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:module": "tsc -p tsconfig.module.json && npm run postbuild:module",
+    "postbuild:module": "cp src/module-package.json dist-module/package.json && cp src/module-readme.md dist-module/README.md"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.8",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.1",
-    "tailwindcss": "^4.1.8"
+    "react-router-dom": "^7.6.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

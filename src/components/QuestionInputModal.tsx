@@ -1,14 +1,12 @@
-
 // src/components/QuestionInputModal.tsx
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import type { QuestionInputModalProps } from '../../types';
+import type { QuestionInputModalProps } from '../types'; // Updated path
 
 const QuestionInputModal: React.FC<QuestionInputModalProps> = ({ isOpen, questionText, onSubmit, onEndRun }) => {
   const [answer, setAnswer] = useState('');
 
   useEffect(() => {
-    // Reset answer when modal is opened for a new question
     if (isOpen) {
       setAnswer('');
     }

@@ -1,6 +1,6 @@
 // src/hooks/workflow/useExecutionState.ts
-import { useState, useRef, useCallback } from 'react';
-import type { ConclusionOutputModalData } from '../../../types';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import type { ConclusionOutputModalData, NextStepInfo, RunStep } from '../../types'; // Updated path
 
 export const useExecutionState = () => {
   const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
@@ -11,6 +11,29 @@ export const useExecutionState = () => {
   const [totalTokensThisRun, setTotalTokensThisRun] = useState<number>(0);
   const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState<boolean>(true);
   const [conclusionModalContent, setConclusionModalContent] = useState<ConclusionOutputModalData | null>(null);
+  
+  const [activeExecutionCount, setActiveExecutionCount] = useState(0);
+  const activeExecutionCountRef = useRef(activeExecutionCount); 
+  useEffect(() => {
+    activeExecutionCountRef.current = activeExecutionCount;
+  }, [activeExecutionCount]);
+
+  const [isSteppingActive, setIsSteppingActive] = useState(false);
+  const [nextStepInfo, setNextStepInfo] = useState<NextStepInfo | null>(null);
+  const [currentRunSteps, setCurrentRunSteps] = useState<RunStep[]>([]); 
+
+
+  const incrementActiveExecutionCount = useCallback(() => {
+    setActiveExecutionCount(prev => prev + 1);
+  }, []);
+
+  const decrementActiveExecutionCount = useCallback(() => {
+    setActiveExecutionCount(prev => Math.max(0, prev - 1));
+  }, []);
+
+  const getActiveExecutionCount = useCallback(() => {
+    return activeExecutionCountRef.current;
+  }, []);
 
   const clearConclusionModalContent = useCallback(() => {
     setConclusionModalContent(null);
@@ -33,5 +56,16 @@ export const useExecutionState = () => {
     conclusionModalContent,
     setConclusionModalContent,
     clearConclusionModalContent,
+    activeExecutionCount, 
+    setActiveExecutionCount, 
+    incrementActiveExecutionCount,
+    decrementActiveExecutionCount,
+    getActiveExecutionCount,
+    isSteppingActive,
+    setIsSteppingActive,
+    nextStepInfo,
+    setNextStepInfo,
+    currentRunSteps, 
+    setCurrentRunSteps,
   };
 };

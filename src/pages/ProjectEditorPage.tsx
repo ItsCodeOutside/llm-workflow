@@ -1,6 +1,6 @@
 // src/pages/ProjectEditorPage.tsx
 import React, { useEffect, useCallback, useRef, useMemo, useState } from 'react';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 
 import Header from '../components/Header';
 import NodeEditModal from '../components/NodeEditModal';
@@ -10,13 +10,13 @@ import HelpModal from '../components/HelpModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import UnsavedChangesModal from '../components/UnsavedChangesModal';
 import ExecutionStatusPanel from '../components/ExecutionStatusPanel';
-import Sidebar from '../components/editor/Sidebar'; 
-import CanvasArea from '../components/editor/CanvasArea'; 
-import QuestionInputModal from '../components/QuestionInputModal'; 
-import ConclusionOutputModal from '../components/ConclusionOutputModal'; // New
+import Sidebar from '../components/editor/Sidebar';
+import CanvasArea from '../components/editor/CanvasArea';
+import QuestionInputModal from '../components/QuestionInputModal';
+import ConclusionOutputModal from '../components/ConclusionOutputModal';
 
 
-import { 
+import {
     useProjects,
     useProjectStateManagement,
     useNodeManagement,
@@ -25,13 +25,13 @@ import {
     useEditorModals,
     useVisualLinks,
     useCanvasPanZoom,
-    useIsMobile 
-} from '../hooks'; 
+    useIsMobile
+} from '../hooks';
 
 import { getValidNodes } from '../utils';
-import { type Project, type Node, NodeType, QuestionInputModalProps, CanvasAreaProps as OriginalCanvasAreaProps } from '../../types';
+import { type Project, type Node, NodeType, QuestionInputModalProps, CanvasAreaProps as OriginalCanvasAreaProps, ConclusionOutputModalData, type AppSettings, LLMProvider } from '../types'; // Updated path
 
-// Define ExtendedCanvasAreaProps by adding onNodeTouchStart to OriginalCanvasAreaProps
+
 interface ExtendedCanvasAreaProps extends OriginalCanvasAreaProps {
   onNodeTouchStart: (nodeId: string, e: React.TouchEvent) => void;
 }
@@ -41,9 +41,9 @@ const ProjectEditorPage: React.FC = () => {
   const editorAreaRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null);
 
-  const isMobile = useIsMobile(); 
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false); 
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); 
+  const isMobile = useIsMobile();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   const toggleSidebar = useCallback(() => {
     if (isMobile) {
@@ -52,19 +52,19 @@ const ProjectEditorPage: React.FC = () => {
       setIsDesktopSidebarOpen(prev => !prev);
     }
   }, [isMobile]);
-  
+
   const currentSidebarOpenState = isMobile ? isMobileSidebarOpen : isDesktopSidebarOpen;
 
 
   const {
-    projectId, 
+    projectId,
     currentProject,
-    setCurrentProject, 
+    setCurrentProject,
     isLoading,
     hasUnsavedChanges,
     saveProjectState,
     isUnsavedChangesModalOpen,
-    setIsUnsavedChangesModalOpen, 
+    setIsUnsavedChangesModalOpen,
     handleRequestCloseProject,
     handleSaveAndClose,
     handleCloseWithoutSaving,
@@ -81,15 +81,15 @@ const ProjectEditorPage: React.FC = () => {
     scale,
     translate,
     handleWheelOnCanvas,
-    handleMouseDownOnCanvas, 
+    handleMouseDownOnCanvas,
     zoomIn,
     zoomOut,
     resetZoom,
-    MIN_SCALE, 
-    MAX_SCALE  
+    MIN_SCALE,
+    MAX_SCALE
   } = useCanvasPanZoom({ editorAreaRef });
 
-  const [questionInputModalData, setQuestionInputModalData] = useState<Omit<QuestionInputModalProps, 'isOpen'> & { resolve: (answer: string) => void; reject: (reason?: any) => void } | null>(null);
+  const [questionInputModalData, setQuestionInputModalData] = useState<Omit<QuestionInputModalProps, 'isOpen' | 'onClose'> & { resolve: (answer: string) => void; reject: (reason?: any) => void } | null>(null);
 
 
   const requestUserInputCallback = useCallback((question: string, nodeId: string): Promise<string> => {
@@ -104,31 +104,33 @@ const ProjectEditorPage: React.FC = () => {
           setQuestionInputModalData(null);
           reject(new Error("User ended the run."));
         },
-        resolve, 
+        resolve,
         reject
       });
     });
   }, []);
 
+  const workflowExecutionData = useWorkflowExecution({ currentProject, saveProjectState, setCurrentProject, hasUnsavedChanges, requestUserInput: requestUserInputCallback });
+
   const {
     selectedNodeState, setSelectedNodeState,
     isNodeModalOpen, setIsNodeModalOpen,
     deleteNodeConfirm, setDeleteNodeConfirm,
-    deleteActionInitiated, setDeleteActionInitiated, 
+    deleteActionInitiated, setDeleteActionInitiated,
     handleAddNode,
     handleSaveNode,
     confirmDeleteNode,
     handleDeleteNodeRequest,
-  } = useNodeManagement({ 
-      currentProject, 
-      setCurrentProject, 
-      saveProjectState, 
-      editorAreaRef, 
-      scale, 
-      translate 
+  } = useNodeManagement({
+      currentProject,
+      setCurrentProject,
+      saveProjectState,
+      editorAreaRef,
+      scale,
+      translate
     });
 
-  const { handleNodeMouseDown, handleNodeTouchStart } = useNodeDragging({ 
+  const { handleNodeMouseDown, handleNodeTouchStart } = useNodeDragging({
     currentProject,
     setCurrentProject,
     editorAreaRef,
@@ -149,25 +151,38 @@ const ProjectEditorPage: React.FC = () => {
     totalTokensThisRun,
     isExecutionPanelOpen,
     setIsExecutionPanelOpen,
-    runWorkflow: executeWorkflowFromHook, 
     handleStopWorkflow,
-    conclusionModalContent, // New
-    clearConclusionModalContent, // New
-  } = useWorkflowExecution({ currentProject, saveProjectState, setCurrentProject, hasUnsavedChanges, requestUserInput: requestUserInputCallback });
+    conclusionModalContent,
+    clearConclusionModalContent,
+    isSteppingActive,
+    hasNextStep,
+    startStepThrough,
+    processAndAdvanceStep,
+  } = workflowExecutionData;
 
 
   const validNodesOnCanvas = useMemo(() => getValidNodes(currentProject?.nodes), [currentProject?.nodes]);
   const { visualLinks, getLineToRectangleIntersectionPoint } = useVisualLinks(validNodesOnCanvas);
 
 
-  const handleRunWorkflow = async () => {
-    if (!currentProject) return;
+  const handleRunWorkflowWrapper = useCallback(async () => {
+    if (!currentProject || workflowExecutionData.isSteppingActive) {
+      return;
+    }
+    if (workflowExecutionData.isWorkflowRunning) {
+        return;
+    }
+    
     try {
-      await executeWorkflowFromHook();
+      if (typeof workflowExecutionData.runWorkflow === 'function') {
+        await workflowExecutionData.runWorkflow();
+      } else {
+        openLlmErrorModal("A critical error occurred: The workflow execution function is not available. Please try reloading the application.");
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes("User ended the run")) {
-        console.info("Workflow execution was ended by the user.");
+      if (errorMessage.includes("User ended the run") || errorMessage.includes("Run stopped")) {
+         // Already handled by finalizeRun
       } else if (errorMessage.toLowerCase().includes("chatgpt api error: api key")) {
             openLlmErrorModal(
                 <>
@@ -190,19 +205,40 @@ const ProjectEditorPage: React.FC = () => {
                     <p className="text-xs mt-2">Please check your Ollama server status and settings in "App Settings".</p>
                 </>
             );
-        } 
+        }  else if (errorMessage.toLowerCase().includes("run failed")) {
+            // Already handled by finalizeRun
+        }
         else {
-            openLlmErrorModal(`An unexpected LLM error occurred: ${errorMessage}`);
+            openLlmErrorModal(`An unexpected error occurred during workflow execution: ${errorMessage}`);
         }
     }
-  };
-  
+  }, [currentProject, workflowExecutionData, openLlmErrorModal, hasUnsavedChanges]);
+
+
   const handleSaveProjectSettingsAndCloseModal = (settings: Pick<Project, 'name' | 'description' | 'author' | 'projectVariables'>) => {
     if (!currentProject) return;
-    const updatedProject = { ...currentProject, ...settings }; 
+    const updatedProject = { ...currentProject, ...settings };
     saveProjectState(updatedProject); 
     closeProjectSettingsModal();
   };
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [autoRunAttempted, setAutoRunAttempted] = useState(false);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const autorun = queryParams.get('autorun');
+    if (autorun === 'true' && currentProject && !isLoading && !workflowExecutionData.isWorkflowRunning && !workflowExecutionData.isSteppingActive && !autoRunAttempted) {
+      setAutoRunAttempted(true);
+      handleRunWorkflowWrapper().catch(error => {
+        // Error already handled in handleRunWorkflowWrapper
+      });
+      const newSearchParams = new URLSearchParams(location.search);
+      newSearchParams.delete('autorun');
+      navigate({ pathname: location.pathname, search: newSearchParams.toString() }, { replace: true, state: location.state });
+    }
+  }, [currentProject, isLoading, workflowExecutionData.isWorkflowRunning, workflowExecutionData.isSteppingActive, location, navigate, handleRunWorkflowWrapper, autoRunAttempted]);
 
 
   if (isLoading) {
@@ -232,21 +268,26 @@ const ProjectEditorPage: React.FC = () => {
         minScale: MIN_SCALE,
         maxScale: MAX_SCALE,
       },
-      onNodeTouchStart: handleNodeTouchStart, 
+      onNodeTouchStart: handleNodeTouchStart,
+      onDeleteNodeRequest: handleDeleteNodeRequest as (nodeId: string, e: React.MouseEvent | React.TouchEvent) => void,
   };
 
 
   return (
     <div className="flex h-screen flex-col">
       <Header
-        onRunProject={handleRunWorkflow}
+        onRunProject={handleRunWorkflowWrapper}
         onStopProject={handleStopWorkflow}
+        onStartStepThrough={startStepThrough}
+        onProcessNextStep={processAndAdvanceStep}
         currentProjectName={currentProject.name}
         isWorkflowRunning={isWorkflowRunning}
-        onToggleSidebar={isMobile ? toggleSidebar : undefined} 
-        onNavigateHome={() => handleRequestCloseProject(isWorkflowRunning)} // Pass the handler
+        isSteppingActive={isSteppingActive}
+        hasNextStep={hasNextStep}
+        onToggleSidebar={isMobile ? toggleSidebar : undefined}
+        onNavigateHome={() => handleRequestCloseProject(isWorkflowRunning)}
       />
-      <div className="flex flex-1 overflow-hidden pb-12 sm:pb-0"> 
+      <div className="flex flex-1 overflow-hidden pb-12 sm:pb-0">
         <Sidebar
           isSidebarOpen={currentSidebarOpenState}
           toggleSidebar={toggleSidebar}
@@ -285,7 +326,7 @@ const ProjectEditorPage: React.FC = () => {
           onEndRun={questionInputModalData.onEndRun}
         />
       )}
-      <ConclusionOutputModal 
+      <ConclusionOutputModal
         isOpen={conclusionModalContent !== null}
         data={conclusionModalContent}
         onClose={clearConclusionModalContent}
