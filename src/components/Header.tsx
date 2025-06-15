@@ -185,8 +185,8 @@ const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={onToggleExecutionPanel}
                 className={`rounded-md px-2 py-1.5 sm:px-3 sm:py-2 text-white flex items-center text-xs sm:text-sm ${isExecutionPanelOpen ? 'bg-sky-800' : 'bg-slate-700 hover:bg-sky-600'}`}
-                aria-label={isExecutionPanelOpen ? 'Hide Execution Panel' : 'Show Execution Panel'}
-                title={isExecutionPanelOpen ? 'Hide Execution Panel' : 'Show Execution Panel'}
+                aria-label={isExecutionPanelOpen ? 'Hide Execution Log' : 'Show Execution Log'}
+                title={isExecutionPanelOpen ? 'Hide Execution Log' : 'Show Execution Log'}
                 style={{ marginLeft: 4 }}
               >
                 <i className={`fas fa-terminal sm:mr-1`}></i>
