@@ -1,0 +1,21 @@
+{
+  "name": "LLM Workflow",
+  "short_name": "LLMWorkflow",
+  "description": "A workflow engine for LLM applications.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1976d2",
+  "icons": [
+    {
+      "src": "images/icons/favicon_s.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icons/favicon_l.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
