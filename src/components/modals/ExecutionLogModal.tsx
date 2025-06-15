@@ -16,7 +16,7 @@ interface ExecutionLogModalProps {
 }
 
 const ExecutionLogModal: React.FC<ExecutionLogModalProps> = ({
-  logs, currentExecutingNodeId, nodes, runStartTime, runEndTime, totalTokensThisRun, isOpen, onClose, currentProjectName
+  logs, currentExecutingNodeId, nodes = [], runStartTime, runEndTime, totalTokensThisRun, isOpen, onClose, currentProjectName
 }) => {
   const isMobile = useIsMobile();
 
@@ -48,7 +48,7 @@ const ExecutionLogModal: React.FC<ExecutionLogModalProps> = ({
     }
   };
 
-  const currentExecutingNode = currentExecutingNodeId ? nodes.find(n => n.id === currentExecutingNodeId) : null;
+  const currentExecutingNode = currentExecutingNodeId && Array.isArray(nodes) ? nodes.find(n => n.id === currentExecutingNodeId) : null;
   const runDuration = runStartTime && runEndTime ? ((runEndTime - runStartTime) / 1000).toFixed(2) + 's' : (runStartTime ? 'Running...' : '-');
 
   return (
