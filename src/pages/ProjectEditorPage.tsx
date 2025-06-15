@@ -309,7 +309,7 @@ const ProjectEditorPage: React.FC = () => {
       <ExecutionLogModal
         isOpen={isExecutionLogModalOpen}
         onClose={handleToggleExecutionLogModal}
-        logs={workflowExecutionData.logs || []}
+        logs={workflowExecutionData.executionLogs || []}
         currentExecutingNodeId={workflowExecutionData.currentExecutingNodeId}
         nodes={workflowExecutionData.nodes}
         runStartTime={workflowExecutionData.runStartTime}
