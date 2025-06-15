@@ -44,6 +44,8 @@ const ProjectEditorPage: React.FC = () => {
   const isMobile = useIsMobile();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  // Add execution panel state
+  const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState(false);
 
   const toggleSidebar = useCallback(() => {
     if (isMobile) {
@@ -149,8 +151,6 @@ const ProjectEditorPage: React.FC = () => {
     runStartTime,
     runEndTime,
     totalTokensThisRun,
-    isExecutionPanelOpen,
-    setIsExecutionPanelOpen,
     handleStopWorkflow,
     conclusionModalContent,
     clearConclusionModalContent,
@@ -286,6 +286,8 @@ const ProjectEditorPage: React.FC = () => {
         hasNextStep={hasNextStep}
         onToggleSidebar={isMobile ? toggleSidebar : undefined}
         onNavigateHome={() => handleRequestCloseProject(isWorkflowRunning)}
+        onToggleExecutionPanel={() => setIsExecutionPanelOpen(prev => !prev)}
+        isExecutionPanelOpen={isExecutionPanelOpen}
       />
       <div className="flex flex-1 overflow-hidden pb-12 sm:pb-0">
         <Sidebar
