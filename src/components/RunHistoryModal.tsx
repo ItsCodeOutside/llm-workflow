@@ -3,12 +3,27 @@ import React from 'react';
 import Modal from './Modal';
 import type { ProjectRun, RunHistoryModalProps } from '../types'; // Updated path
 
-const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ runHistory, isOpen, onClose }) => {
+interface RunHistoryModalWithClearProps extends RunHistoryModalProps {
+  onClearHistory: () => void;
+}
+
+const RunHistoryModal: React.FC<RunHistoryModalWithClearProps> = ({ runHistory, isOpen, onClose, onClearHistory }) => {
+  // Order by timestamp descending (newest first)
+  const orderedHistory = [...runHistory].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Project Run History" widthClass="sm:max-w-4xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="Project Run History" widthClass="sm:max-w-4xl"
+      footerContent={
+        <button
+          onClick={onClearHistory}
+          className="rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700 text-sm font-medium mt-2"
+        >
+          <i className="fas fa-trash mr-2"></i>Clear History
+        </button>
+      }
+    >
       <div className="max-h-[70vh] overflow-y-auto space-y-4 custom-scroll">
-        {runHistory.length === 0 && <p className="text-slate-400">No runs recorded yet.</p>}
-        {runHistory.slice().reverse().map((run: ProjectRun) => ( 
+        {orderedHistory.length === 0 && <p className="text-slate-400">No runs recorded yet.</p>}
+        {orderedHistory.map((run: ProjectRun) => ( 
           <div key={run.id} className="rounded-lg border border-slate-700 bg-slate-800 p-4">
             <div className="mb-2 flex flex-wrap justify-between items-center text-sm text-slate-400 gap-x-4 gap-y-1">
               <span>Run ID: {run.id.substring(0,6)}</span>

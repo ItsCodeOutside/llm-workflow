@@ -236,6 +236,13 @@ const ProjectEditorPage: React.FC = () => {
 
   const currentSidebarOpenState = isMobile ? isMobileSidebarOpen : isDesktopSidebarOpen;
 
+  // Handler to clear run history
+  const handleClearRunHistory = useCallback(() => {
+    if (!currentProject) return;
+    setCurrentProject({ ...currentProject, runHistory: [] });
+    saveProjectState({ ...currentProject, runHistory: [] });
+  }, [currentProject, setCurrentProject, saveProjectState]);
+
   if (isLoading) {
     return <div className="p-4 text-center text-slate-300 h-screen flex flex-col justify-center items-center bg-slate-900">Loading project...</div>;
   }
@@ -313,7 +320,12 @@ const ProjectEditorPage: React.FC = () => {
 
       <NodeEditModal node={selectedNodeState} isOpen={isNodeModalOpen} onClose={() => { setIsNodeModalOpen(false); setSelectedNodeState(null); }} onSave={handleSaveNode} allNodes={validNodesOnCanvas} />
       <ProjectSettingsModal project={currentProject} isOpen={isProjectSettingsModalOpen} onClose={closeProjectSettingsModal} onSave={handleSaveProjectSettingsAndCloseModal} />
-      <RunHistoryModal runHistory={currentProject.runHistory} isOpen={isRunHistoryModalOpen} onClose={closeRunHistoryModal} />
+      <RunHistoryModal 
+        runHistory={currentProject.runHistory} 
+        isOpen={isRunHistoryModalOpen} 
+        onClose={closeRunHistoryModal} 
+        onClearHistory={handleClearRunHistory}
+      />
       <HelpModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
       {questionInputModalData && (
         <QuestionInputModal
