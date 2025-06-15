@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ></div>
         )}
         <aside 
-          className={`fixed top-0 left-0 h-full bg-slate-800 shadow-xl flex flex-col custom-scroll transition-transform duration-300 ease-in-out z-40
+          className={`fixed top-0 left-0 h-full bg-slate-800 shadow-xl flex flex-col overflow-y-auto transition-transform duration-300 ease-in-out z-40
                       ${isSidebarOpen ? 'translate-x-0 w-64 p-4 space-y-3' : '-translate-x-full w-64 p-4 space-y-3'}`}
         >
            <button
@@ -81,8 +81,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="relative bg-slate-800 shadow-xl">
       <aside 
-        className={`flex flex-col custom-scroll transition-all duration-300 ease-in-out
-                    ${isSidebarOpen ? 'w-60 p-4 space-y-3' : 'w-0 p-0 opacity-0 overflow-hidden'}`}
+        className={`flex flex-col overflow-y-auto transition-all duration-300 ease-in-out
+                    ${isSidebarOpen ? 'w-60 p-4 space-y-3' : 'w-0 p-0 opacity-0'}`}
       >
         {isSidebarOpen && (
           <>
