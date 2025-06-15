@@ -118,7 +118,7 @@ const Header: React.FC<HeaderProps> = ({
             className="text-xl sm:text-2xl font-bold text-sky-400 hover:text-sky-300 flex items-center"
             onClick={handleLogoClick}
           >
-            <i className="fas fa-cogs mr-2"></i>
+            <i className="fas fa-microchip mr-2"></i>
             <span className={isMobile ? "hidden sm:inline" : "inline"}>LLM Workflow</span>
           </RouterLink>
           {currentProjectName && <span className="text-slate-400 text-sm sm:text-lg hidden md:inline">| {currentProjectName}</span>}
