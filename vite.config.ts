@@ -3,9 +3,8 @@ import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
     return {
-      base: './',
+      base: './llm-workflow/',
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './'),
