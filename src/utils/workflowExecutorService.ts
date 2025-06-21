@@ -328,7 +328,7 @@ const executePathInExecutor = async ({
         const branches: ConditionalBranch[] = currentNode.branches || [];
         let matchedBranch: ConditionalBranch | undefined = branches.find((branch: ConditionalBranch) => {
           const condition = branch.condition.toLowerCase();
-          const llmOutput = currentOutput.toLowerCase();
+          const llmOutput = currentOutput.toLowerCase().trim();
           if (condition.startsWith('contains ')) return llmOutput.includes(condition.substring(9).trim());
           if (condition.startsWith('starts with ')) return llmOutput.startsWith(condition.substring(12).trim());
           return llmOutput === condition;
