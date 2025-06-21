@@ -23,12 +23,12 @@ export default defineConfig(({ mode }) => {
             theme_color: "#1976d2",
             icons: [
               {
-                src: '/llm-workflow/images/icons/favicon_s_.png',
+                src: 'favicon_s_.png',
                 sizes: '192x192',
                 type: 'image/png'
               },
               {
-                src: '/llm-workflow/images/icons/favicon_l_.png',
+                src: 'favicon_l_.png',
                 sizes: '512x512',
                 type: 'image/png'
               }
