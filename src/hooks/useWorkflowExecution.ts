@@ -129,13 +129,13 @@ export const useWorkflowExecution = ({
 
       const runEntry: ProjectRun = { 
         id: generateId(), 
-        timestamp: new Date(runStartTime!).toISOString(), 
+        timestamp: new Date(runStartTime != null ? runStartTime : Date.now()).toISOString(), 
         status, 
         steps: currentRunSteps, 
         finalOutput,
         error,
         totalTokensUsed: totalTokensThisRun,
-        durationMs: runStartTime ? endTime - runStartTime : 0,
+        durationMs: runStartTime != null ? endTime - runStartTime : 0,
       };
       const updatedHistory = [...(prevProject.runHistory || []), runEntry].slice(-MAX_RUN_HISTORY);
       

@@ -97,7 +97,7 @@ const Modal: React.FC<ModalProps> = ({
 
         {/* Body */}
         <div className={`bg-slate-800 px-4 sm:p-6 flex-grow overflow-y-auto custom-scroll ${isMaximized ? 'h-0' : ''}`}> {/* h-0 on maximized allows flex-grow to take full space */}
-          <div className="mt-2">
+          <div className="mt-2 h-full">
             {children}
           </div>
         </div>

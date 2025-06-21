@@ -1,4 +1,6 @@
 // src/components/ExecutionStatusPanel.tsx
+// This file has been replaced by ExecutionLogModal in modals/.
+
 import React, { useEffect, useRef } from 'react';
 import type { Node, NodeExecutionLog } from '../types'; // Updated path
 import { useIsMobile } from '../hooks/useIsMobile';

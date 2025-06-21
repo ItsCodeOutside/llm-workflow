@@ -9,7 +9,7 @@ import RunHistoryModal from '../components/RunHistoryModal';
 import HelpModal from '../components/HelpModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import UnsavedChangesModal from '../components/UnsavedChangesModal';
-import ExecutionStatusPanel from '../components/ExecutionStatusPanel';
+import ExecutionLogModal from '../components/modals/ExecutionLogModal';
 import Sidebar from '../components/editor/Sidebar';
 import CanvasArea from '../components/editor/CanvasArea';
 import QuestionInputModal from '../components/QuestionInputModal';
@@ -44,17 +44,9 @@ const ProjectEditorPage: React.FC = () => {
   const isMobile = useIsMobile();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
-
-  const toggleSidebar = useCallback(() => {
-    if (isMobile) {
-      setIsMobileSidebarOpen(prev => !prev);
-    } else {
-      setIsDesktopSidebarOpen(prev => !prev);
-    }
-  }, [isMobile]);
-
-  const currentSidebarOpenState = isMobile ? isMobileSidebarOpen : isDesktopSidebarOpen;
-
+  const [isExecutionLogModalOpen, setIsExecutionLogModalOpen] = useState(false);
+  const [questionInputModalData, setQuestionInputModalData] = useState<Omit<QuestionInputModalProps, 'isOpen' | 'onClose'> & { resolve: (answer: string) => void; reject: (reason?: any) => void } | null>(null);
+  const [autoRunAttempted, setAutoRunAttempted] = useState(false);
 
   const {
     projectId,
@@ -77,7 +69,7 @@ const ProjectEditorPage: React.FC = () => {
     isLlmErrorModalOpen, llmErrorMessage, openLlmErrorModal, closeLlmErrorModal
   } = useEditorModals();
 
-   const {
+  const {
     scale,
     translate,
     handleWheelOnCanvas,
@@ -88,9 +80,6 @@ const ProjectEditorPage: React.FC = () => {
     MIN_SCALE,
     MAX_SCALE
   } = useCanvasPanZoom({ editorAreaRef });
-
-  const [questionInputModalData, setQuestionInputModalData] = useState<Omit<QuestionInputModalProps, 'isOpen' | 'onClose'> & { resolve: (answer: string) => void; reject: (reason?: any) => void } | null>(null);
-
 
   const requestUserInputCallback = useCallback((question: string, nodeId: string): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -149,8 +138,6 @@ const ProjectEditorPage: React.FC = () => {
     runStartTime,
     runEndTime,
     totalTokensThisRun,
-    isExecutionPanelOpen,
-    setIsExecutionPanelOpen,
     handleStopWorkflow,
     conclusionModalContent,
     clearConclusionModalContent,
@@ -160,10 +147,8 @@ const ProjectEditorPage: React.FC = () => {
     processAndAdvanceStep,
   } = workflowExecutionData;
 
-
   const validNodesOnCanvas = useMemo(() => getValidNodes(currentProject?.nodes), [currentProject?.nodes]);
   const { visualLinks, getLineToRectangleIntersectionPoint } = useVisualLinks(validNodesOnCanvas);
-
 
   const handleRunWorkflowWrapper = useCallback(async () => {
     if (!currentProject || workflowExecutionData.isSteppingActive) {
@@ -172,7 +157,6 @@ const ProjectEditorPage: React.FC = () => {
     if (workflowExecutionData.isWorkflowRunning) {
         return;
     }
-    
     try {
       if (typeof workflowExecutionData.runWorkflow === 'function') {
         await workflowExecutionData.runWorkflow();
@@ -214,7 +198,6 @@ const ProjectEditorPage: React.FC = () => {
     }
   }, [currentProject, workflowExecutionData, openLlmErrorModal, hasUnsavedChanges]);
 
-
   const handleSaveProjectSettingsAndCloseModal = (settings: Pick<Project, 'name' | 'description' | 'author' | 'projectVariables'>) => {
     if (!currentProject) return;
     const updatedProject = { ...currentProject, ...settings };
@@ -224,7 +207,6 @@ const ProjectEditorPage: React.FC = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const [autoRunAttempted, setAutoRunAttempted] = useState(false);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -240,6 +222,26 @@ const ProjectEditorPage: React.FC = () => {
     }
   }, [currentProject, isLoading, workflowExecutionData.isWorkflowRunning, workflowExecutionData.isSteppingActive, location, navigate, handleRunWorkflowWrapper, autoRunAttempted]);
 
+  const handleToggleExecutionLogModal = useCallback(() => {
+    setIsExecutionLogModalOpen((prev) => !prev);
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    if (isMobile) {
+      setIsMobileSidebarOpen(prev => !prev);
+    } else {
+      setIsDesktopSidebarOpen(prev => !prev);
+    }
+  }, [isMobile]);
+
+  const currentSidebarOpenState = isMobile ? isMobileSidebarOpen : isDesktopSidebarOpen;
+
+  // Handler to clear run history
+  const handleClearRunHistory = useCallback(() => {
+    if (!currentProject) return;
+    setCurrentProject({ ...currentProject, runHistory: [] });
+    saveProjectState({ ...currentProject, runHistory: [] });
+  }, [currentProject, setCurrentProject, saveProjectState]);
 
   if (isLoading) {
     return <div className="p-4 text-center text-slate-300 h-screen flex flex-col justify-center items-center bg-slate-900">Loading project...</div>;
@@ -286,6 +288,8 @@ const ProjectEditorPage: React.FC = () => {
         hasNextStep={hasNextStep}
         onToggleSidebar={isMobile ? toggleSidebar : undefined}
         onNavigateHome={() => handleRequestCloseProject(isWorkflowRunning)}
+        onToggleExecutionPanel={handleToggleExecutionLogModal}
+        isExecutionPanelOpen={isExecutionLogModalOpen}
       />
       <div className="flex flex-1 overflow-hidden pb-12 sm:pb-0">
         <Sidebar
@@ -302,21 +306,26 @@ const ProjectEditorPage: React.FC = () => {
         <CanvasArea {...canvasAreaProps} />
       </div>
 
-      <ExecutionStatusPanel
-        logs={executionLogs}
-        currentExecutingNodeId={currentExecutingNodeId}
-        nodes={validNodesOnCanvas}
-        runStartTime={runStartTime}
-        runEndTime={runEndTime}
-        totalTokensThisRun={totalTokensThisRun}
-        isOpen={isExecutionPanelOpen}
-        onToggle={() => setIsExecutionPanelOpen(prev => !prev)}
-        currentProjectName={currentProject.name}
+      <ExecutionLogModal
+        isOpen={isExecutionLogModalOpen}
+        onClose={handleToggleExecutionLogModal}
+        logs={workflowExecutionData.executionLogs || []}
+        currentExecutingNodeId={workflowExecutionData.currentExecutingNodeId}
+        nodes={workflowExecutionData.nodes}
+        runStartTime={workflowExecutionData.runStartTime}
+        runEndTime={workflowExecutionData.runEndTime}
+        totalTokensThisRun={workflowExecutionData.totalTokensThisRun}
+        currentProjectName={currentProject?.name || ''}
       />
 
       <NodeEditModal node={selectedNodeState} isOpen={isNodeModalOpen} onClose={() => { setIsNodeModalOpen(false); setSelectedNodeState(null); }} onSave={handleSaveNode} allNodes={validNodesOnCanvas} />
       <ProjectSettingsModal project={currentProject} isOpen={isProjectSettingsModalOpen} onClose={closeProjectSettingsModal} onSave={handleSaveProjectSettingsAndCloseModal} />
-      <RunHistoryModal runHistory={currentProject.runHistory} isOpen={isRunHistoryModalOpen} onClose={closeRunHistoryModal} />
+      <RunHistoryModal 
+        runHistory={currentProject.runHistory} 
+        isOpen={isRunHistoryModalOpen} 
+        onClose={closeRunHistoryModal} 
+        onClearHistory={handleClearRunHistory}
+      />
       <HelpModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
       {questionInputModalData && (
         <QuestionInputModal

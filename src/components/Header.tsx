@@ -17,6 +17,8 @@ interface HeaderProps {
   hasNextStep?: boolean;
   onToggleSidebar?: () => void;
   onNavigateHome?: () => void;
+  onToggleExecutionPanel?: () => void;
+  isExecutionPanelOpen?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -29,7 +31,9 @@ const Header: React.FC<HeaderProps> = ({
   isSteppingActive,
   hasNextStep,
   onToggleSidebar,
-  onNavigateHome 
+  onNavigateHome,
+  onToggleExecutionPanel,
+  isExecutionPanelOpen
 }) => {
   const [isAppSettingsModalOpen, setIsAppSettingsModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -114,7 +118,7 @@ const Header: React.FC<HeaderProps> = ({
             className="text-xl sm:text-2xl font-bold text-sky-400 hover:text-sky-300 flex items-center"
             onClick={handleLogoClick}
           >
-            <i className="fas fa-cogs mr-2"></i>
+            <i className="fas fa-microchip mr-2"></i>
             <span className={isMobile ? "hidden sm:inline" : "inline"}>LLM Workflow</span>
           </RouterLink>
           {currentProjectName && <span className="text-slate-400 text-sm sm:text-lg hidden md:inline">| {currentProjectName}</span>}
@@ -161,6 +165,7 @@ const Header: React.FC<HeaderProps> = ({
           )}
 
           {onStartStepThrough && onProcessNextStep && (
+            <>
             <button
                 onClick={isSteppingActive ? onProcessNextStep : onStartStepThrough}
                 disabled={isStepButtonDisabled}
@@ -175,6 +180,19 @@ const Header: React.FC<HeaderProps> = ({
                 <i className={`${stepButtonIcon} ${isMobile && stepButtonText !== "Step" ? "" : "sm:mr-1"}`}></i>
                 <span className={`hidden ${isMobile && stepButtonText !== "Step" ? "" : "sm:inline"}`}>{stepButtonText}</span>
             </button>
+            {/* Toggle Execution Panel Button */}
+            {onToggleExecutionPanel && (
+              <button
+                onClick={onToggleExecutionPanel}
+                className={`rounded-md px-2 py-1.5 sm:px-3 sm:py-2 text-white flex items-center text-xs sm:text-sm ${isExecutionPanelOpen ? 'bg-sky-800' : 'bg-slate-700 hover:bg-sky-600'}`}
+                aria-label={isExecutionPanelOpen ? 'Hide Execution Log' : 'Show Execution Log'}
+                title={isExecutionPanelOpen ? 'Hide Execution Log' : 'Show Execution Log'}
+              >
+                <i className={`fas fa-terminal sm:mr-1`}></i>
+                <span className="hidden sm:inline">{isExecutionPanelOpen ? 'Hide Log' : 'Show Log'}</span>
+              </button>
+            )}
+            </>
           )}
           
           {isMobile ? (
