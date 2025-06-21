@@ -2,6 +2,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App'; // Ensured relative path
+import './src/site.css';
+
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

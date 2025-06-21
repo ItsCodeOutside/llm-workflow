@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "LLM Interactive Workflow application and its exportable Node.js engine.",
   "homepage": "https://itscodeoutside.github.io/llm-workflow/",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,11 +12,12 @@
     "postbuild:module": "cp src/module-package.json dist-module/package.json && cp src/module-readme.md dist-module/README.md"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.8",
+    "@tailwindcss/vite": "^4.1.10",
     "highlight.js": "^11.11.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.1",
+    "tailwindcss": "^4.1.10",
     "vite-plugin-pwa": "^1.0.0"
   },
   "devDependencies": {
