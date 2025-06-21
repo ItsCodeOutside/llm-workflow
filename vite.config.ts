@@ -23,12 +23,12 @@ export default defineConfig(({ mode }) => {
             theme_color: "#1976d2",
             icons: [
               {
-                src: 'favicon_s_.png',
+                src: 'favicon_s.png',
                 sizes: '192x192',
                 type: 'image/png'
               },
               {
-                src: 'favicon_l_.png',
+                src: 'favicon_l.png',
                 sizes: '512x512',
                 type: 'image/png'
               }
