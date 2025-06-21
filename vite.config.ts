@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
     return {
-      base: './llm-workflow/',
+      base: '/llm-workflow/',
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './'),
@@ -17,18 +17,18 @@ export default defineConfig(({ mode }) => {
             name: "LLM Workflow",
             short_name: "LLMWorkflow",
             description: "A workflow engine for LLM applications.",
-            start_url: ".",
+            start_url: "/llm-workflow/",
             display: "standalone",
             background_color: "#ffffff",
             theme_color: "#1976d2",
             icons: [
               {
-                src: '/images/icons/favicon_s_.png',
+                src: '/llm-workflow/images/icons/favicon_s_.png',
                 sizes: '192x192',
                 type: 'image/png'
               },
               {
-                src: '/images/icons/favicon_l_.png',
+                src: '/llm-workflow/images/icons/favicon_l_.png',
                 sizes: '512x512',
                 type: 'image/png'
               }
