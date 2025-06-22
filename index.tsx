@@ -3,7 +3,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App'; // Ensured relative path
 import './src/site.css';
-
+// Import a highlight.js theme CSS file
+import 'highlight.js/styles/github-dark.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
