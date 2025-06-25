@@ -19,6 +19,7 @@ interface HeaderProps {
   onNavigateHome?: () => void;
   onToggleExecutionPanel?: () => void;
   isExecutionPanelOpen?: boolean;
+  onCloseProject?: (isWorkflowRunning: boolean) => Promise<boolean>; // Accepts isWorkflowRunning
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -33,7 +34,8 @@ const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   onNavigateHome,
   onToggleExecutionPanel,
-  isExecutionPanelOpen
+  isExecutionPanelOpen,
+  onCloseProject // Destructure onCloseProject
 }) => {
   const [isAppSettingsModalOpen, setIsAppSettingsModalOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -41,6 +43,7 @@ const Header: React.FC<HeaderProps> = ({
   const isMobile = useIsMobile();
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const isPwa = window.matchMedia('(display-mode: standalone)').matches;
 
   const handleSaveAppSettings = (newSettings: AppSettings) => {
     setAppSettings(newSettings);
@@ -212,6 +215,21 @@ const Header: React.FC<HeaderProps> = ({
                   >
                     <i className="fas fa-cog mr-2"></i>App Settings
                   </button>
+                  {isPwa && (
+                  <button
+                    onClick={async () => {
+                      if (onCloseProject) {
+                        const closed = await onCloseProject(!!isWorkflowRunning);
+                        if (closed) window.close();
+                      } else {
+                        window.close();
+                      }
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-600"
+                  >
+                    <i className="fas fa-power-off mr-2"></i>Exit
+                  </button>
+                  )}
                 </div>
               )}
             </div>

@@ -284,6 +284,7 @@ const ProjectEditorPage: React.FC = () => {
         onProcessNextStep={processAndAdvanceStep}
         currentProjectName={currentProject.name}
         isWorkflowRunning={isWorkflowRunning}
+        onCloseProject={handleRequestCloseProject}
         isSteppingActive={isSteppingActive}
         hasNextStep={hasNextStep}
         onToggleSidebar={isMobile ? toggleSidebar : undefined}

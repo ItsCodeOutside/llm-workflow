@@ -1,5 +1,5 @@
 // src/hooks/useProjectStateManagement.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProjects } from '../hooks'; 
 import type { Project } from '../types'; // Updated path
@@ -53,29 +53,51 @@ export const useProjectStateManagement = () => {
     }
     setHasUnsavedChanges(false);
   }, [updateProject]);
+  const closeProjectPromiseResolve = useRef<((closed: boolean) => void) | null>(null);
 
-  const handleRequestCloseProject = (isWorkflowRunning: boolean) => {
-    if (isWorkflowRunning) return;
-    if (hasUnsavedChanges) {
-      setIsUnsavedChangesModalOpen(true);
-    } else {
-      navigate('/');
-    }
-  };
+const handleRequestCloseProject = useCallback((isWorkflowRunning: boolean): Promise<boolean> => {
+  if (isWorkflowRunning) return Promise.resolve(false);
+  if (hasUnsavedChanges) {
+    setIsUnsavedChangesModalOpen(true);
+    return new Promise<boolean>((resolve) => {
+      closeProjectPromiseResolve.current = resolve;
+    });
+  } else {
+    navigate('/');
+    return Promise.resolve(true);
+  }
+}, [hasUnsavedChanges, navigate]);
 
-  const handleSaveAndClose = () => {
+const handleSaveAndClose = useCallback(() => {
     if (currentProject) {
       saveProjectState(currentProject);
     }
     setIsUnsavedChangesModalOpen(false);
     navigate('/');
-  };
+    if (closeProjectPromiseResolve.current) {
+      closeProjectPromiseResolve.current(true);
+      closeProjectPromiseResolve.current = null;
+    }
+  }, [currentProject, saveProjectState, ]);
 
-  const handleCloseWithoutSaving = () => {
+
+  const handleCloseWithoutSaving = useCallback(() => {
     setIsUnsavedChangesModalOpen(false);
     navigate('/');
-  };
+    if (closeProjectPromiseResolve.current) {
+      closeProjectPromiseResolve.current(true);
+      closeProjectPromiseResolve.current = null;
+    }
+  }, []);
   
+  const handleCancelClose = useCallback(() => {
+    setIsUnsavedChangesModalOpen(false);
+    if (closeProjectPromiseResolve.current) {
+      closeProjectPromiseResolve.current(false);
+      closeProjectPromiseResolve.current = null;
+    }
+  }, []);
+
   const updateCurrentProject = useCallback((updater: Project | ((prev: Project | null) => Project | null)) => {
     setCurrentProjectInternal(prevProjectInternalState => {
         const prevProjectForComparison = prevProjectInternalState ? deepClone(prevProjectInternalState) : null;
@@ -121,5 +143,6 @@ export const useProjectStateManagement = () => {
     handleRequestCloseProject,
     handleSaveAndClose,
     handleCloseWithoutSaving,
+    handleCancelClose
   };
 };
