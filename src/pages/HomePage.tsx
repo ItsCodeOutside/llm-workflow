@@ -23,14 +23,15 @@ const HomePage: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const [runningProjectInfo, setRunningProjectInfo] = useState<{
+  type RunningProjectInfo = {
     id: string;
     name: string;
     statusText: string;
     elapsedTime: number;
     intervalId: number | null;
     stopRequested: boolean;
-  } | null>(null);
+  };
+  const [runningProjectInfo, setRunningProjectInfo] = useState<RunningProjectInfo | null>(null);
   const [conclusionModalData, setConclusionModalData] = useState<ConclusionOutputModalData | null>(null);
   const [isConclusionModalOpen, setIsConclusionModalOpen] = useState(false);
   const [homePageRunError, setHomePageRunError] = useState<string | null>(null);
@@ -168,7 +169,7 @@ const HomePage: React.FC = () => {
 
 
     const intervalId = window.setInterval(() => {
-      setRunningProjectInfo(prev => prev ? { ...prev, elapsedTime: prev.elapsedTime + 1 } : null);
+      setRunningProjectInfo((prev: RunningProjectInfo | null) => prev ? { ...prev, elapsedTime: prev.elapsedTime + 1 } : null);
     }, 1000);
 
     setRunningProjectInfo({
@@ -216,6 +217,9 @@ const HomePage: React.FC = () => {
     };
 
     let result: ExecuteWorkflowResult | null = null;
+    // Store intervalId and elapsedTime in local variables to avoid type narrowing issues after await
+    const intervalIdToClear: number | null = (runningProjectInfo as RunningProjectInfo | null)?.intervalId ?? null;
+    const elapsedTimeAtStart: number = (runningProjectInfo as RunningProjectInfo | null)?.elapsedTime ?? 0;
     try {
       result = await executeWorkflow(projectCloneForRun, appSettings, callbacks); 
     } catch (e) { 
@@ -223,11 +227,10 @@ const HomePage: React.FC = () => {
         result = { status: 'failed', error: errorMsg, steps: [], totalTokensUsed: 0, updatedNodes: projectCloneForRun.nodes };
     }
 
-
-    if (runningProjectInfo?.intervalId) { 
-      clearInterval(runningProjectInfo.intervalId);
+    if (intervalIdToClear) { 
+      clearInterval(intervalIdToClear);
     }
-    setRunningProjectInfo(prev => {
+    setRunningProjectInfo((prev: RunningProjectInfo | null) => {
         if (prev && prev.intervalId) clearInterval(prev.intervalId);
         return null; 
     });
@@ -242,9 +245,9 @@ const HomePage: React.FC = () => {
                 status: result.status,
                 steps: result.steps,
                 finalOutput: result.finalOutput,
-                error: result.error || homePageRunError, 
+                error: result.error || homePageRunError || undefined, 
                 totalTokensUsed: result.totalTokensUsed,
-                durationMs: runningProjectInfo?.elapsedTime ? runningProjectInfo.elapsedTime * 1000 : 0, 
+                durationMs: elapsedTimeAtStart * 1000, 
             };
             const updatedHistory = [...(originalProject.runHistory || []), runEntry].slice(-MAX_RUN_HISTORY);
             
@@ -265,7 +268,7 @@ const HomePage: React.FC = () => {
   const handleStopRunFromHome = () => {
       if (runningProjectInfo) {
           runStopRequestedRef.current = true;
-          setRunningProjectInfo(prev => prev ? {...prev, statusText: "Stopping...", stopRequested: true} : null);
+          setRunningProjectInfo((prev: RunningProjectInfo | null) => prev ? {...prev, statusText: "Stopping...", stopRequested: true} : null);
       }
   };
 

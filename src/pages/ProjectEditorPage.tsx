@@ -38,8 +38,8 @@ interface ExtendedCanvasAreaProps extends OriginalCanvasAreaProps {
 
 
 const ProjectEditorPage: React.FC = () => {
-  const editorAreaRef = useRef<HTMLDivElement>(null);
-  const canvasContentRef = useRef<HTMLDivElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
+  const canvasContentRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
 
   const isMobile = useIsMobile();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -312,7 +312,7 @@ const ProjectEditorPage: React.FC = () => {
         onClose={handleToggleExecutionLogModal}
         logs={workflowExecutionData.executionLogs || []}
         currentExecutingNodeId={workflowExecutionData.currentExecutingNodeId}
-        nodes={workflowExecutionData.nodes}
+        nodes={validNodesOnCanvas}
         runStartTime={workflowExecutionData.runStartTime}
         runEndTime={workflowExecutionData.runEndTime}
         totalTokensThisRun={workflowExecutionData.totalTokensThisRun}
