@@ -1,4 +1,4 @@
-import { AppSettings } from './types';
+import { AppSettings } from './src/types';
 export declare const DEFAULT_APP_SETTINGS: AppSettings;
 export declare const ALLOWED_CHATGPT_TEXT_MODELS: string[];
 export declare const MAX_RUN_HISTORY = 20;
