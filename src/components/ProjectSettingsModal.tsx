@@ -130,7 +130,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
           <p className="text-xs text-slate-400 mb-3">Use only letters, numbers, and underscores for names. Node-specific variables will override these if names conflict.</p>
           <div className="space-y-3 max-h-60 overflow-y-auto custom-scroll pr-2">
             {projectVariables.map((pv, index) => (
-              <div>
+              <div key={`container-${pv.id}`} >
               <div key={pv.id} className="flex items-center space-x-2 p-2 bg-slate-700 rounded-md">
                 <div className="flex-1">
                   <label htmlFor={`varName-${pv.id}`} className="sr-only">Variable Name</label>
@@ -163,7 +163,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
                 </button>
               </div>
                 { (pv.name !== sanitizeVariableName(pv.name) || !pv.name.trim()) && isOpen && (
-                  <div className="flex items-center space-x-2 p-2 bg-slate-700 rounded-md">
+                  <div key={`validation-${pv.id}`} className="flex items-center space-x-2 p-2 bg-slate-700 rounded-md">
                     <p className="text-xs text-red-400 mt-1">Name must be alphanumeric (plus underscore) and cannot be empty.</p>
                   </div>
                 )}
