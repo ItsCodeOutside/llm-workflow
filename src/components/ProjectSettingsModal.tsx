@@ -10,6 +10,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
   const [author, setAuthor] = useState('');
   const [projectVariables, setProjectVariables] = useState<ProjectVariable[]>([]);
   const [isSaveDisabled, setIsSaveDisabled] = useState(false);
+  // Track which variable's value is expanded (by id)
+  const [expandedVarId, setExpandedVarId] = useState<string | null>(null);
 
   useEffect(() => {
     if (project && isOpen) {
@@ -45,6 +47,14 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
       }
       return updated;
     });
+  };
+
+  const handleExpandValue = (id: string) => {
+    setExpandedVarId(id);
+  };
+
+  const handleCollapseValue = () => {
+    setExpandedVarId(null);
   };
 
   const handleAddVariable = () => {
@@ -130,40 +140,71 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, is
           <p className="text-xs text-slate-400 mb-3">Use only letters, numbers, and underscores for names. Node-specific variables will override these if names conflict.</p>
           <div className="space-y-3 max-h-60 overflow-y-auto custom-scroll pr-2">
             {projectVariables.map((pv, index) => (
-              <div key={`container-${pv.id}`} >
-              <div key={pv.id} className="flex items-center space-x-2 p-2 bg-slate-700 rounded-md">
-                <div className="flex-1">
-                  <label htmlFor={`varName-${pv.id}`} className="sr-only">Variable Name</label>
-                  <input
-                    type="text"
-                    id={`varName-${pv.id}`}
-                    placeholder="Variable Name (e.g., api_version)"
-                    value={pv.name}
-                    onChange={(e) => handleVariableChange(index, 'name', e.target.value)}
-                    className="block w-full rounded-md border-slate-600 bg-slate-650 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm placeholder-slate-400"
-                  />
+              <div key={pv.id}>
+                <div className="flex items-center space-x-2 p-2 bg-slate-700 rounded-md">
+                  <div className="flex-1">
+                    <label htmlFor={`varName-${pv.id}`} className="sr-only">Variable Name</label>
+                    <input
+                      type="text"
+                      id={`varName-${pv.id}`}
+                      placeholder="Variable Name (e.g., api_version)"
+                      value={pv.name}
+                      onChange={(e) => handleVariableChange(index, 'name', e.target.value)}
+                      className="block w-full rounded-md border-slate-600 bg-slate-650 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm placeholder-slate-400"
+                    />
+                  </div>
+                  <div className="flex-1 flex items-center space-x-2">
+                    <label htmlFor={`varValue-${pv.id}`} className="sr-only">Variable Value</label>
+                    {expandedVarId === pv.id ? (
+                      <>
+                        <textarea
+                          id={`varValue-${pv.id}`}
+                          placeholder="Variable Value"
+                          value={pv.value}
+                          onChange={(e) => handleVariableChange(index, 'value', e.target.value)}
+                          className="block w-full rounded-md border-slate-600 bg-slate-650 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm placeholder-slate-400 resize-y min-h-[80px]"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCollapseValue}
+                          className="ml-1 px-2 py-1 rounded bg-slate-600 text-slate-200 hover:bg-slate-500 text-xs"
+                          aria-label="Collapse variable value editor"
+                        >
+                          Collapse
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          id={`varValue-${pv.id}`}
+                          placeholder="Variable Value"
+                          value={pv.value}
+                          onChange={(e) => handleVariableChange(index, 'value', e.target.value)}
+                          className="block w-full rounded-md border-slate-600 bg-slate-650 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm placeholder-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleExpandValue(pv.id)}
+                          className="ml-1 px-2 py-1 rounded bg-slate-600 text-slate-200 hover:bg-slate-500 text-xs"
+                          aria-label="Expand variable value editor"
+                        >
+                          Expand
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => handleDeleteVariable(pv.id)} 
+                    className="p-2 text-red-500 hover:text-red-400 rounded-md hover:bg-slate-600"
+                    aria-label="Delete variable"
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <label htmlFor={`varValue-${pv.id}`} className="sr-only">Variable Value</label>
-                  <input
-                    type="text"
-                    id={`varValue-${pv.id}`}
-                    placeholder="Variable Value"
-                    value={pv.value}
-                    onChange={(e) => handleVariableChange(index, 'value', e.target.value)}
-                    className="block w-full rounded-md border-slate-600 bg-slate-650 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm placeholder-slate-400"
-                  />
-                </div>
-                <button 
-                  onClick={() => handleDeleteVariable(pv.id)} 
-                  className="p-2 text-red-500 hover:text-red-400 rounded-md hover:bg-slate-600"
-                  aria-label="Delete variable"
-                >
-                  <i className="fas fa-trash"></i>
-                </button>
-              </div>
                 { (pv.name !== sanitizeVariableName(pv.name) || !pv.name.trim()) && isOpen && (
-                  <div key={`validation-${pv.id}`} className="flex items-center space-x-2 p-2 bg-slate-700 rounded-md">
+                  <div className="flex items-center space-x-2 p-2 bg-slate-700 rounded-md">
                     <p className="text-xs text-red-400 mt-1">Name must be alphanumeric (plus underscore) and cannot be empty.</p>
                   </div>
                 )}
