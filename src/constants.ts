@@ -35,6 +35,7 @@ export const NODE_COLORS: { [key: string]: string } = {
   [NodeType.JAVASCRIPT]: 'bg-purple-600 hover:bg-purple-700',
   [NodeType.PARALLEL]: 'bg-rose-600 hover:bg-rose-700', // Added Parallel color
   [NodeType.SYNCHRONIZE]: 'bg-lime-600 hover:bg-lime-700', // Added Synchronize color
+  [NodeType.PERSISTENT_VARIABLE]: 'bg-yellow-400 hover:bg-yellow-500 text-slate-900',
   ERROR: 'bg-red-700',
   RUNNING: 'bg-purple-600 animate-pulse', // Consider a different running color or combine with existing
 };

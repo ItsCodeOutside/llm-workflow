@@ -2,8 +2,9 @@
 // src/components/editor/CanvasArea.tsx
 import React from 'react';
 import ZoomControls from '../ZoomControls';
-import { NodeType } from '../../types'; // Changed from import type
-import type { Node, CanvasAreaProps as ImportedCanvasAreaProps } from '../../types';
+import { NodeType, Link } from '../../engineTypes';
+import type { CanvasAreaProps as ImportedCanvasAreaProps } from '../../types';
+import type { Node as WorkflowNode } from '../../engineTypes';
 import {
   NODE_WIDTH, NODE_HEIGHT, GRID_CELL_SIZE,
   NODE_COLORS, INITIAL_CONCLUSION_NODE_TITLE, INITIAL_QUESTION_NODE_PROMPT, 
@@ -11,8 +12,7 @@ import {
 } from '../../constants';
 
 interface ExtendedCanvasAreaProps extends ImportedCanvasAreaProps {
-  onNodeTouchStart: (nodeId: string, e: React.TouchEvent) => void; 
-  // onDeleteNodeRequest is already in ImportedCanvasAreaProps
+  onNodeTouchStart: (nodeId: string, e: React.TouchEvent) => void;
 }
 
 const NODE_ICONS: { [key in NodeType]?: string } = {
@@ -20,15 +20,16 @@ const NODE_ICONS: { [key in NodeType]?: string } = {
   [NodeType.PROMPT]: 'fas fa-comment-dots',
   [NodeType.CONDITIONAL]: 'fas fa-code-branch',
   [NodeType.VARIABLE]: 'fas fa-database',
+  [NodeType.PERSISTENT_VARIABLE]: 'fas fa-database',
   [NodeType.QUESTION]: 'fas fa-question-circle',
   [NodeType.JAVASCRIPT]: 'fas fa-code',
-  [NodeType.PARALLEL]: 'fas fa-project-diagram', 
-  [NodeType.SYNCHRONIZE]: 'fas fa-hourglass-half', 
+  [NodeType.PARALLEL]: 'fas fa-project-diagram',
+  [NodeType.SYNCHRONIZE]: 'fas fa-hourglass-half',
   [NodeType.CONCLUSION]: 'fas fa-flag-checkered',
 };
 
 
-const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({ 
+const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
   nodes,
   visualLinks,
   getLineToRectangleIntersectionPoint,
@@ -40,11 +41,11 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
   onWheel,
   onCanvasMouseDown,
   zoomControls,
-  onNodeTouchStart, 
-  onDeleteNodeRequest, 
+  onNodeTouchStart,
+  onDeleteNodeRequest,
 }) => {
 
-  const getNodeById = (id: string): Node | undefined => nodes.find(n => n.id === id); 
+  const getNodeById = (id: string): WorkflowNode | undefined => nodes.find((n) => (n as any).id === id) as WorkflowNode | undefined;
 
   return (
     <main
@@ -66,7 +67,7 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
             transformOrigin: '0 0',
         }}
       >
-        {nodes.map(node => {
+        {nodes.map((node: any) => {
             if (!node || typeof node.type !== 'string' || !Object.values(NodeType).includes(node.type as NodeType)) {
                 return (
                 <div
@@ -78,13 +79,15 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
                 </div>
                 );
             }
-            const nodeBaseColorClass = NODE_COLORS[node.type] || NODE_COLORS.PROMPT;
+            const nodeBaseColorClass = NODE_COLORS[node.type as keyof typeof NODE_COLORS] || NODE_COLORS.PROMPT;
             const borderColorClass = node.isRunning ? 'border-purple-500 animate-pulse' : (node.hasError ? 'border-red-500' : 'border-transparent');
             const finalNodeClass = `${nodeBaseColorClass} ${borderColorClass}`;
+
 
             let nodeHoverTitle = node.name || node.type;
             if (node.type === NodeType.CONCLUSION) nodeHoverTitle += `: ${node.prompt || INITIAL_CONCLUSION_NODE_TITLE}`;
             else if (node.type === NodeType.VARIABLE) nodeHoverTitle += `: Stores as {${node.name}}`;
+            else if (node.type === NodeType.PERSISTENT_VARIABLE) nodeHoverTitle += `: Persistent as {${node.persistentVariableName}}`;
             else if (node.type === NodeType.QUESTION) nodeHoverTitle += `: ${node.prompt || INITIAL_QUESTION_NODE_PROMPT}`;
             else if (node.type === NodeType.JAVASCRIPT) nodeHoverTitle += `: JS Function (${node.prompt || 'No description'})`;
             else if (node.type === NodeType.PARALLEL) nodeHoverTitle += `: ${node.prompt || INITIAL_PARALLEL_NODE_DESCRIPTION}`;
@@ -92,7 +95,7 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
             else nodeHoverTitle += `: ${node.prompt || '(No prompt)'}`;
 
 
-            const iconClass = NODE_ICONS[node.type] || 'fas fa-cog'; 
+            const iconClass = NODE_ICONS[(node.type as NodeType)] || 'fas fa-cog';
 
             return (
             <div
@@ -140,6 +143,16 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
                              <p className="mt-1 text-yellow-300">(Processing...)</p> :
                            (node.lastRunOutput ?
                             <p className="mt-1 text-green-300">Last Value: {node.lastRunOutput}</p> :
+                            <p className="mt-1 text-slate-400">(No value captured yet)</p>)
+                        }
+                    </div>
+                ) : node.type === NodeType.PERSISTENT_VARIABLE ? (
+                    <div className="text-xs text-yellow-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                        <p className="font-semibold italic">Persistent: {'{'+(node.persistentVariableName || 'PersistentVar')+'}'}</p>
+                        {node.isRunning ?
+                             <p className="mt-1 text-yellow-300">(Processing...)</p> :
+                           (node.lastRunOutput ?
+                            <p className="mt-1 text-green-300">Current Value: {node.lastRunOutput}</p> :
                             <p className="mt-1 text-slate-400">(No value captured yet)</p>)
                         }
                     </div>
@@ -192,6 +205,7 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
             </div>
         );})}
 
+        {/* Draw arrows for all nodes with a nextNodeId, including Persistent Variable nodes */}
         <svg
             className="absolute top-0 left-0 pointer-events-none"
             style={{ width: '10000px', height: '10000px' }}
@@ -202,58 +216,98 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
                 <polygon points="0 0, 10 3.5, 0 7" />
             </marker>
             </defs>
-            {visualLinks.map(link => {
-            const sourceNode = getNodeById(link.sourceId);
-            const targetNode = getNodeById(link.targetId);
-            if (!sourceNode || !targetNode) return null;
+            {/* Draw explicit links (e.g., for conditional/parallel) */}
+            {visualLinks.map((link: Link) => {
+                const sourceNode = getNodeById(link.sourceId);
+                const targetNode = getNodeById(link.targetId);
+                if (!sourceNode || !targetNode) return null;
 
-            const sourceNodeRect = { x: sourceNode.position.x, y: sourceNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
-            const targetNodeRect = { x: targetNode.position.x, y: targetNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
+                const sourceNodeRect = { x: sourceNode.position.x, y: sourceNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
+                const targetNodeRect = { x: targetNode.position.x, y: targetNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
 
-            const sourceCenter = { x: sourceNode.position.x + NODE_WIDTH / 2, y: sourceNode.position.y + NODE_HEIGHT / 2 };
-            const targetCenter = { x: targetNode.position.x + NODE_WIDTH / 2, y: targetNode.position.y + NODE_HEIGHT / 2 };
+                const sourceCenter = { x: sourceNode.position.x + NODE_WIDTH / 2, y: sourceNode.position.y + NODE_HEIGHT / 2 };
+                const targetCenter = { x: targetNode.position.x + NODE_WIDTH / 2, y: targetNode.position.y + NODE_HEIGHT / 2 };
 
-            const startPoint = getLineToRectangleIntersectionPoint(targetCenter, sourceCenter, sourceNodeRect);
-            const endPoint = getLineToRectangleIntersectionPoint(sourceCenter, targetCenter, targetNodeRect);
+                const startPoint = getLineToRectangleIntersectionPoint(targetCenter, sourceCenter, sourceNodeRect);
+                const endPoint = getLineToRectangleIntersectionPoint(sourceCenter, targetCenter, targetNodeRect);
 
-            const dx = endPoint.x - startPoint.x;
-            const dy = endPoint.y - startPoint.y;
-            const curveFactor = 0.2;
-            let midX = startPoint.x + dx * 0.5;
-            let midY = startPoint.y + dy * 0.5;
-            const normalX = -dy * curveFactor;
-            const normalY = dx * curveFactor;
+                const dx = endPoint.x - startPoint.x;
+                const dy = endPoint.y - startPoint.y;
+                const curveFactor = 0.2;
+                let midX = startPoint.x + dx * 0.5;
+                let midY = startPoint.y + dy * 0.5;
+                const normalX = -dy * curveFactor;
+                const normalY = dx * curveFactor;
 
-            let cpX = midX + normalX;
-            let cpY = midY + normalY;
+                let cpX = midX + normalX;
+                let cpY = midY + normalY;
 
-            if (Math.abs(dx) < 1 && Math.abs(dy) < 1) { // Nodes are overlapping or very close, add more curve
-                cpX += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalX || 1); // Add more significant curve
-                cpY += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalY || 1);
-            }
+                if (Math.abs(dx) < 1 && Math.abs(dy) < 1) { // Nodes are overlapping or very close, add more curve
+                    cpX += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalX || 1); // Add more significant curve
+                    cpY += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalY || 1);
+                }
 
+                const path = `M ${startPoint.x},${startPoint.y} Q ${cpX},${cpY} ${endPoint.x},${endPoint.y}`;
+                const labelX = 0.25 * startPoint.x + 0.5 * cpX + 0.25 * endPoint.x;
+                const labelY = 0.25 * startPoint.y + 0.5 * cpY + 0.25 * endPoint.y;
 
-            const path = `M ${startPoint.x},${startPoint.y} Q ${cpX},${cpY} ${endPoint.x},${endPoint.y}`;
-            const labelX = 0.25 * startPoint.x + 0.5 * cpX + 0.25 * endPoint.x;
-            const labelY = 0.25 * startPoint.y + 0.5 * cpY + 0.25 * endPoint.y;
+                return (
+                    <g key={link.id}>
+                    <path d={path} stroke="#0EA5E9" strokeWidth="2" fill="none" markerEnd="url(#arrowhead)" />
+                    {link.condition && (
+                        <text
+                            x={labelX}
+                            y={labelY - 5}
+                            fill="#94A3B8"
+                            fontSize="10px"
+                            textAnchor="middle"
+                            className="pointer-events-auto"
+                        >
+                        {link.condition}
+                        </text>
+                    )}
+                    </g>
+                );
+            })}
+            {/* Draw nextNodeId arrows for all nodes that have them (including Persistent Variable nodes) */}
+            {nodes.map((node: any) => {
+                if (!node.nextNodeId) return null;
+                const sourceNode = getNodeById(node.id);
+                const targetNode = getNodeById(node.nextNodeId);
+                if (!sourceNode || !targetNode) return null;
 
-            return (
-                <g key={link.id}>
-                <path d={path} stroke="#0EA5E9" strokeWidth="2" fill="none" markerEnd="url(#arrowhead)" />
-                {link.condition && (
-                    <text
-                        x={labelX}
-                        y={labelY - 5}
-                        fill="#94A3B8"
-                        fontSize="10px"
-                        textAnchor="middle"
-                        className="pointer-events-auto"
-                    >
-                    {link.condition}
-                    </text>
-                )}
-                </g>
-            );
+                const sourceNodeRect = { x: sourceNode.position.x, y: sourceNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
+                const targetNodeRect = { x: targetNode.position.x, y: targetNode.position.y, width: NODE_WIDTH, height: NODE_HEIGHT };
+
+                const sourceCenter = { x: sourceNode.position.x + NODE_WIDTH / 2, y: sourceNode.position.y + NODE_HEIGHT / 2 };
+                const targetCenter = { x: targetNode.position.x + NODE_WIDTH / 2, y: targetNode.position.y + NODE_HEIGHT / 2 };
+
+                const startPoint = getLineToRectangleIntersectionPoint(targetCenter, sourceCenter, sourceNodeRect);
+                const endPoint = getLineToRectangleIntersectionPoint(sourceCenter, targetCenter, targetNodeRect);
+
+                const dx = endPoint.x - startPoint.x;
+                const dy = endPoint.y - startPoint.y;
+                const curveFactor = 0.2;
+                let midX = startPoint.x + dx * 0.5;
+                let midY = startPoint.y + dy * 0.5;
+                const normalX = -dy * curveFactor;
+                const normalY = dx * curveFactor;
+
+                let cpX = midX + normalX;
+                let cpY = midY + normalY;
+
+                if (Math.abs(dx) < 1 && Math.abs(dy) < 1) { // Nodes are overlapping or very close, add more curve
+                    cpX += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalX || 1); // Add more significant curve
+                    cpY += (Math.random() - 0.5) * 40 + 20 * Math.sign(normalY || 1);
+                }
+
+                const path = `M ${startPoint.x},${startPoint.y} Q ${cpX},${cpY} ${endPoint.x},${endPoint.y}`;
+
+                return (
+                    <g key={`nextNode-${node.id}`}>
+                        <path d={path} stroke="#0EA5E9" strokeWidth="2" fill="none" markerEnd="url(#arrowhead)" />
+                    </g>
+                );
             })}
         </svg>
       </div>

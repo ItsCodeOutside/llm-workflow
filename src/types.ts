@@ -1,16 +1,25 @@
 
 // src/types.ts
-import type { Node, Project, AppSettings, ProjectRun, ConclusionOutputModalData } from './engineTypes';
-import { NodeType, Link } from './engineTypes'; // Explicit import for use in this file
-export * from './engineTypes'; // Re-export all engine types
+
+
+import type { Node as WorkflowNode, Project, AppSettings, ProjectRun, ConclusionOutputModalData } from './engineTypes';
+import { NodeType, Link } from './engineTypes';
+export * from './engineTypes';
+
+// Persistent Variable Node extension
+export interface PersistentVariableNode extends Omit<Node, 'type'> {
+  type: NodeType.PERSISTENT_VARIABLE;
+  persistentVariableName: string; // Friendly name, default "Persistent Memory"
+  persistentValue: string; // Value to persist
+}
 
 // UI-Specific Prop Types
 export interface NodeModalProps {
-  node: Node | null;
+  node: WorkflowNode | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updatedNode: Node) => void;
-  allNodes: Node[];
+  onSave: (updatedNode: WorkflowNode) => void;
+  allNodes: WorkflowNode[];
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
 }

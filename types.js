@@ -9,6 +9,7 @@ var NodeType;
     NodeType["CONDITIONAL"] = "CONDITIONAL";
     NodeType["CONCLUSION"] = "CONCLUSION";
     NodeType["VARIABLE"] = "VARIABLE";
+    NodeType["PERSISTENT_VARIABLE"] = "PERSISTENT_VARIABLE";
     NodeType["QUESTION"] = "QUESTION";
     NodeType["JAVASCRIPT"] = "JAVASCRIPT";
     NodeType["PARALLEL"] = "PARALLEL";

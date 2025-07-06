@@ -91,12 +91,19 @@ export const processNodeInExecutor = async ({
       const llmResponse: LLMExecutePromptResponse = await executePrompt(promptSent, settings);
       output = llmResponse.text;
       tokensUsedThisStep = llmResponse.usageMetadata?.totalTokenCount || 0;
-    } else if (node.type === NodeType.VARIABLE) {
-      const sanitizedVarName = sanitizeVariableName(node.name);
-      if (!sanitizedVarName) throw new Error(`Variable node "${node.name}" has invalid name.`);
-      nodeVariables.set(sanitizedVarName, previousOutput);
+    } else if (node.type === NodeType.VARIABLE || node.type === NodeType.PERSISTENT_VARIABLE) {
+      // For Persistent Variable, use persistentVariableName for reference, else use name
+      let varName: string;
+      if (node.type === NodeType.PERSISTENT_VARIABLE) {
+        varName = sanitizeVariableName(node.persistentVariableName || 'Persistent_Memory');
+        node.persistentValue = previousOutput; // Update the persistent value for later persistence
+      } else {
+        varName = sanitizeVariableName(node.name);
+      }
+      if (!varName) throw new Error(`Variable node has invalid name.`);
+      nodeVariables.set(varName, previousOutput);
       output = previousOutput;
-      promptSent = `Stored input as '${sanitizedVarName}'`;
+      promptSent = `Stored input as '${varName}'`;
       callbacks.onLogEntry({ nodeId: node.id, nodeName: node.name, status: 'variable_set', output, endTime: new Date().toISOString(), pathId });
     } else if (node.type === NodeType.QUESTION) {
       promptSent = substitutePlaceholdersInExecutor(node.prompt, previousOutput, nodeVariables, projectVariablesMap, systemVariablesMap, projectNodes);
@@ -196,11 +203,15 @@ export const processNodeInExecutor = async ({
     }
 
     callbacks.onTokenUpdate(tokensUsedThisStep);
-    if (node.type !== NodeType.VARIABLE && node.type !== NodeType.JAVASCRIPT && node.type !== NodeType.PARALLEL && node.type !== NodeType.SYNCHRONIZE && node.type !== NodeType.CONCLUSION) {
+    if (node.type !== NodeType.VARIABLE && node.type !== NodeType.PERSISTENT_VARIABLE && node.type !== NodeType.JAVASCRIPT && node.type !== NodeType.PARALLEL && node.type !== NodeType.SYNCHRONIZE && node.type !== NodeType.CONCLUSION) {
         callbacks.onLogEntry({ nodeId: node.id, nodeName: node.name, status: 'completed', output, tokensUsed: tokensUsedThisStep, endTime: new Date().toISOString(), pathId });
     }
 
     node.lastRunOutput = output;
+    // For Persistent Variable, also update persistentValue for project persistence
+    if (node.type === NodeType.PERSISTENT_VARIABLE) {
+      node.persistentValue = output;
+    }
     node.isRunning = false;
     node.hasError = false;
     callbacks.onNodeStatusUpdate(node.id, { isRunning: false, hasError: false, lastRunOutput: output });
@@ -462,10 +473,14 @@ export const executeWorkflow = async (
     }
 
 
-    const finalNodesAfterExecution = initialNodesForRun.map(n => ({
-        ...n,
-        isRunning: false, // Ensure all nodes are marked not running
-    }));
+    // For Persistent Variable nodes, ensure their persistentValue is up to date after execution
+    const finalNodesAfterExecution = initialNodesForRun.map(n => {
+      if (n.type === NodeType.PERSISTENT_VARIABLE) {
+        // Use the lastRunOutput as the new persistentValue if available
+        return { ...n, isRunning: false, persistentValue: typeof n.lastRunOutput === 'string' ? n.lastRunOutput : n.persistentValue };
+      }
+      return { ...n, isRunning: false };
+    });
 
     return {
       status: result.status,

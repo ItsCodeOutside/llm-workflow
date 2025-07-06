@@ -1,7 +1,8 @@
 // src/components/NodeEditModal.tsx
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { type Node, type NodeModalProps, NodeType } from '../types'; // Updated path
+import { type NodeModalProps, NodeType } from '../types';
+import type { Node as WorkflowNode } from '../engineTypes';
 import { deepClone, generateId, sanitizeVariableName } from '../utils';
 import { useIsMobile } from '../hooks/useIsMobile';
 import JavaScriptEditor from './node_edit_modal_parts/JavaScriptEditor';
@@ -11,7 +12,7 @@ import { MAX_PARALLEL_BRANCHES } from '../constants'; // Updated path
 
 
 const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave, allNodes }) => {
-  const [editableNode, setEditableNode] = useState<Node | null>(null);
+  const [editableNode, setEditableNode] = useState<WorkflowNode | null>(null);
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
   const [isModalMaximized, setIsModalMaximized] = useState(false);
   const isMobile = useIsMobile();
@@ -24,6 +25,14 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
       }
       if (clonedNode.type === NodeType.VARIABLE) {
         clonedNode.name = sanitizeVariableName(clonedNode.name);
+      }
+      if (clonedNode.type === NodeType.PERSISTENT_VARIABLE) {
+        if (!clonedNode.persistentVariableName) {
+          clonedNode.persistentVariableName = 'Persistent Memory';
+        }
+        if (typeof clonedNode.persistentValue !== 'string') {
+          clonedNode.persistentValue = '';
+        }
       }
       if (clonedNode.type === NodeType.JAVASCRIPT && clonedNode.code === undefined) {
         clonedNode.code = ''; 
@@ -40,25 +49,35 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
     setIsModalMaximized(false); 
   }, [node, isOpen]);
 
-  const validateNode = (nodeToValidate: Node | null) => {
+  const validateNode = (nodeToValidate: WorkflowNode | null) => {
     if (!nodeToValidate) {
       setIsSaveDisabled(true);
       return;
     }
-    let isDisabled = !nodeToValidate.name?.trim();
-    if (nodeToValidate.type === NodeType.VARIABLE) {
-      isDisabled = isDisabled || (nodeToValidate.name !== sanitizeVariableName(nodeToValidate.name)) || !nodeToValidate.name.trim();
+    let isDisabled = false;
+    if (nodeToValidate.type === NodeType.PERSISTENT_VARIABLE) {
+      // Only require a non-empty persistentVariableName
+      isDisabled = !nodeToValidate.persistentVariableName?.trim();
+    } else if (nodeToValidate.type === NodeType.VARIABLE) {
+      isDisabled = !nodeToValidate.name?.trim() || (nodeToValidate.name !== sanitizeVariableName(nodeToValidate.name));
     } else if (nodeToValidate.type === NodeType.CONCLUSION) {
-      isDisabled = isDisabled || !nodeToValidate.prompt?.trim() || !nodeToValidate.outputFormatTemplate?.trim();
+      isDisabled = !nodeToValidate.name?.trim() || !nodeToValidate.prompt?.trim() || !nodeToValidate.outputFormatTemplate?.trim();
     } else if (nodeToValidate.type === NodeType.JAVASCRIPT) {
-      isDisabled = isDisabled || !nodeToValidate.code?.trim(); 
+      isDisabled = !nodeToValidate.name?.trim() || !nodeToValidate.code?.trim();
     } else if (nodeToValidate.type === NodeType.PARALLEL) {
-      // Name is required for parallel node
+      isDisabled = !nodeToValidate.name?.trim();
     } else if (nodeToValidate.type === NodeType.SYNCHRONIZE) {
-      // Name is required for synchronize node
-    } else { 
-      // For Start, Prompt, Conditional, Question
-      isDisabled = isDisabled || !nodeToValidate.prompt?.trim();
+      isDisabled = !nodeToValidate.name?.trim();
+    } else if (nodeToValidate.type === NodeType.PROMPT) {
+      isDisabled = !nodeToValidate.name?.trim() || !nodeToValidate.prompt?.trim();
+    } else if (nodeToValidate.type === NodeType.START) {
+      isDisabled = !nodeToValidate.name?.trim() || !nodeToValidate.prompt?.trim();
+    } else if (nodeToValidate.type === NodeType.CONDITIONAL) {
+      isDisabled = !nodeToValidate.name?.trim() || !nodeToValidate.prompt?.trim();
+    } else if (nodeToValidate.type === NodeType.QUESTION) {
+      isDisabled = !nodeToValidate.name?.trim() || !nodeToValidate.prompt?.trim();
+    } else {
+      isDisabled = !nodeToValidate.name?.trim();
     }
     setIsSaveDisabled(isDisabled);
   };
@@ -70,6 +89,15 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
       let updatedValue = value;
       if (name === 'name' && prev.type === NodeType.VARIABLE) {
         updatedValue = sanitizeVariableName(value);
+      }
+      // Persistent Variable node fields
+      if (prev.type === NodeType.PERSISTENT_VARIABLE) {
+        if (name === 'persistentVariableName') {
+          return { ...prev, persistentVariableName: updatedValue };
+        }
+        if (name === 'persistentValue') {
+          return { ...prev, persistentValue: updatedValue };
+        }
       }
       const updated = { ...prev, [name]: updatedValue };
       validateNode(updated);
@@ -94,6 +122,11 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
          if (!nodeToSave.name.trim()) { 
             return; 
          }
+      }
+      if (nodeToSave.type === NodeType.PERSISTENT_VARIABLE) {
+        if (!nodeToSave.persistentVariableName?.trim()) {
+          return;
+        }
       }
       if (nodeToSave.type === NodeType.CONCLUSION && (!nodeToSave.outputFormatTemplate || nodeToSave.outputFormatTemplate.trim() === '')) {
           nodeToSave.outputFormatTemplate = '{PREVIOUS_OUTPUT}';
@@ -239,15 +272,17 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
 
   const showMaximizeButton = editableNode.type === NodeType.JAVASCRIPT && !isMobile;
   const nodeTypeNameForLabel = editableNode.type === NodeType.VARIABLE ? 'Variable Name' 
+                             : (editableNode.type === NodeType.PERSISTENT_VARIABLE ? 'Persistent Variable Name'
                              : (editableNode.type === NodeType.JAVASCRIPT ? 'Function Name' 
                              : (editableNode.type === NodeType.PARALLEL ? 'Parallel Node Name'
                              : (editableNode.type === NodeType.SYNCHRONIZE ? 'Synchronize Node Name'
-                             : 'Node Name')));
+                             : 'Node Name'))));
   const nodeNamePlaceholder = editableNode.type === NodeType.VARIABLE ? "e.g., customer_name" 
+                            : (editableNode.type === NodeType.PERSISTENT_VARIABLE ? "e.g., persistent_memory" 
                             : (editableNode.type === NodeType.JAVASCRIPT ? "e.g., processUserData" 
                             : (editableNode.type === NodeType.PARALLEL ? "e.g., ProcessInParallel"
                             : (editableNode.type === NodeType.SYNCHRONIZE ? "e.g., WaitForAllTasks"
-                            : "Enter a descriptive name")));
+                            : "Enter a descriptive name"))));
 
   const footerContent = (
     <>
@@ -283,22 +318,51 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
     >
       <div className={`space-y-4 text-slate-300 ${isModalMaximized && editableNode.type === NodeType.JAVASCRIPT ? 'flex flex-col h-full' : ''}`}>
         <div>
-          <label htmlFor="name" className="block text-sm font-medium">
-            {nodeTypeNameForLabel}
-          </label>
-          <input 
-            type="text" 
-            name="name" 
-            id="name" 
-            value={editableNode.name} 
-            onChange={handleChange} 
-            placeholder={nodeNamePlaceholder} 
-            className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm" 
-          />
-          {editableNode.type === NodeType.VARIABLE && (
+          {editableNode.type === NodeType.PERSISTENT_VARIABLE ? (
             <>
-              <p className="text-xs text-slate-400 mt-1">Use only letters, numbers, and underscores (e.g., my_variable_1).</p>
-              <p className="text-xs text-slate-400 mt-1">This name will be used in curly braces, like {'{'+ (sanitizeVariableName(editableNode.name) || 'variableName') + '}'}, in other nodes' prompts.</p>
+              <label htmlFor="persistentVariableName" className="block text-sm font-medium">Persistent Variable Name</label>
+              <input
+                type="text"
+                name="persistentVariableName"
+                id="persistentVariableName"
+                value={editableNode.persistentVariableName || ''}
+                onChange={handleChange}
+                placeholder="e.g., Persistent Memory"
+                className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm"
+              />
+              <p className="text-xs text-slate-400 mt-1">This friendly name will be used in curly braces, like {'{'+ (editableNode.persistentVariableName || 'Persistent Memory') + '}'}, in other nodes' prompts.</p>
+              <label htmlFor="persistentValue" className="block text-sm font-medium mt-4">Current Value</label>
+              <textarea
+                name="persistentValue"
+                id="persistentValue"
+                rows={3}
+                value={editableNode.persistentValue || ''}
+                onChange={handleChange}
+                placeholder="Enter the value to persist..."
+                className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm custom-scroll"
+              />
+              <p className="text-xs text-slate-400 mt-1">This value will be saved with the project and updated after each workflow run.</p>
+            </>
+          ) : (
+            <>
+              <label htmlFor="name" className="block text-sm font-medium">
+                {nodeTypeNameForLabel}
+              </label>
+              <input 
+                type="text" 
+                name="name" 
+                id="name" 
+                value={editableNode.name} 
+                onChange={handleChange} 
+                placeholder={nodeNamePlaceholder} 
+                className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm" 
+              />
+              {editableNode.type === NodeType.VARIABLE && (
+                <>
+                  <p className="text-xs text-slate-400 mt-1">Use only letters, numbers, and underscores (e.g., my_variable_1).</p>
+                  <p className="text-xs text-slate-400 mt-1">This name will be used in curly braces, like {'{'+ (sanitizeVariableName(editableNode.name) || 'variableName') + '}'}, in other nodes' prompts.</p>
+                </>
+              )}
             </>
           )}
         </div>
@@ -374,7 +438,7 @@ const NodeEditModal: React.FC<NodeModalProps> = ({ node, isOpen, onClose, onSave
             </div>
         )}
 
-        {(editableNode.type === NodeType.PROMPT || editableNode.type === NodeType.START || editableNode.type === NodeType.VARIABLE || editableNode.type === NodeType.QUESTION || editableNode.type === NodeType.JAVASCRIPT || editableNode.type === NodeType.SYNCHRONIZE) && (
+        {(editableNode.type === NodeType.PROMPT || editableNode.type === NodeType.START || editableNode.type === NodeType.VARIABLE || editableNode.type === NodeType.PERSISTENT_VARIABLE || editableNode.type === NodeType.QUESTION || editableNode.type === NodeType.JAVASCRIPT || editableNode.type === NodeType.SYNCHRONIZE) && (
           <div className={`${isModalMaximized && editableNode.type === NodeType.JAVASCRIPT ? 'mt-auto pt-4' : ''}`}>
             <label htmlFor="nextNodeId" className="block text-sm font-medium">Next Node</label>
             <select name="nextNodeId" id="nextNodeId" value={editableNode.nextNodeId || ''} onChange={handleChange} className="mt-1 block w-full rounded-md border-slate-600 bg-slate-700 p-2 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm">

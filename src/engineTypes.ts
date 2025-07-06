@@ -6,6 +6,7 @@ export enum NodeType {
   CONDITIONAL = 'CONDITIONAL',
   CONCLUSION = 'CONCLUSION',
   VARIABLE = 'VARIABLE',
+  PERSISTENT_VARIABLE = 'PERSISTENT_VARIABLE',
   QUESTION = 'QUESTION',
   JAVASCRIPT = 'JAVASCRIPT',
   PARALLEL = 'PARALLEL',
@@ -32,6 +33,9 @@ export interface Node {
   lastRunOutput?: string;
   isRunning?: boolean;
   hasError?: boolean;
+  /** Persistent Variable node specific fields */
+  persistentVariableName?: string;
+  persistentValue?: string;
 }
 
 export interface Link {
