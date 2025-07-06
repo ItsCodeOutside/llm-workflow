@@ -1,6 +1,6 @@
 // src/pages/ProjectEditorPage.tsx
 import React, { useEffect, useCallback, useRef, useMemo, useState } from 'react';
-import { useParams, useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
+import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 
 import Header from '../components/Header';
 import NodeEditModal from '../components/NodeEditModal';
@@ -17,7 +17,6 @@ import ConclusionOutputModal from '../components/ConclusionOutputModal';
 
 
 import {
-    useProjects,
     useProjectStateManagement,
     useNodeManagement,
     useNodeDragging,
@@ -29,7 +28,7 @@ import {
 } from '../hooks';
 
 import { getValidNodes } from '../utils';
-import { type Project, type Node, NodeType, QuestionInputModalProps, CanvasAreaProps as OriginalCanvasAreaProps, ConclusionOutputModalData, type AppSettings, LLMProvider } from '../types'; // Updated path
+import { type Project, QuestionInputModalProps, CanvasAreaProps as OriginalCanvasAreaProps } from '../types'; // Updated path
 
 
 interface ExtendedCanvasAreaProps extends OriginalCanvasAreaProps {
@@ -49,7 +48,6 @@ const ProjectEditorPage: React.FC = () => {
   const [autoRunAttempted, setAutoRunAttempted] = useState(false);
 
   const {
-    projectId,
     currentProject,
     setCurrentProject,
     isLoading,
@@ -81,7 +79,7 @@ const ProjectEditorPage: React.FC = () => {
     MAX_SCALE
   } = useCanvasPanZoom({ editorAreaRef });
 
-  const requestUserInputCallback = useCallback((question: string, nodeId: string): Promise<string> => {
+  const requestUserInputCallback = useCallback((question: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       setQuestionInputModalData({
         questionText: question,
@@ -133,11 +131,6 @@ const ProjectEditorPage: React.FC = () => {
 
   const {
     isWorkflowRunning,
-    executionLogs,
-    currentExecutingNodeId,
-    runStartTime,
-    runEndTime,
-    totalTokensThisRun,
     handleStopWorkflow,
     conclusionModalContent,
     clearConclusionModalContent,
@@ -213,7 +206,7 @@ const ProjectEditorPage: React.FC = () => {
     const autorun = queryParams.get('autorun');
     if (autorun === 'true' && currentProject && !isLoading && !workflowExecutionData.isWorkflowRunning && !workflowExecutionData.isSteppingActive && !autoRunAttempted) {
       setAutoRunAttempted(true);
-      handleRunWorkflowWrapper().catch(error => {
+      handleRunWorkflowWrapper().catch(() => {
         // Error already handled in handleRunWorkflowWrapper
       });
       const newSearchParams = new URLSearchParams(location.search);

@@ -1,7 +1,7 @@
 
 // src/components/node_edit_modal_parts/ConditionalBranchEditor.tsx
 import React from 'react';
-import { type Node as WorkflowNode, NodeType } from '../../types'; // Renamed Node to WorkflowNode
+import { type Node as WorkflowNode } from '../../types'; // Renamed Node to WorkflowNode
 
 interface ConditionalBranch {
   id: string;

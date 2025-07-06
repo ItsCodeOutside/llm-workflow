@@ -210,7 +210,7 @@ export const useNodeDragging = ({
     }
   }, [draggingNode, currentProject, setCurrentProject, editorAreaRef, scale, translate]);
 
-  const handleGlobalTouchEnd = useCallback((e: TouchEvent) => {
+  const handleGlobalTouchEnd = useCallback(() => {
     if (currentTouchNodeIdRef.current === null && !draggingNode) return;
 
     if (longPressTimeoutRef.current) {

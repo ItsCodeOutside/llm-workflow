@@ -1,13 +1,13 @@
 // src/utils/workflowExecutorService.ts
 import {
   type Node, NodeType, type Project, type AppSettings, type RunStep,
-  type LLMExecutePromptResponse, type NodeExecutionLog, type ProjectVariable,
-  type ConclusionOutputModalData, type WorkflowExecutionCallbacks, type ProjectRun,
+  type LLMExecutePromptResponse, type ProjectVariable,
+  type WorkflowExecutionCallbacks, type ProjectRun,
   type ConditionalBranch, LLMProvider // Added ConditionalBranch and LLMProvider
 } from '../engineTypes'; // Changed from ../../types
 import { executePrompt } from '../llmService'; // Changed from ../../llmService
 import { getValidNodes, sanitizeVariableName, deepClone } from '../utils'; // Changed from ../../utils
-import { INITIAL_CONCLUSION_NODE_TITLE, INITIAL_JAVASCRIPT_NODE_CODE, INITIAL_PARALLEL_NODE_DESCRIPTION, INITIAL_SYNCHRONIZE_NODE_DESCRIPTION } from '../constants'; // Changed from ../../constants
+import { INITIAL_CONCLUSION_NODE_TITLE, INITIAL_JAVASCRIPT_NODE_CODE, INITIAL_PARALLEL_NODE_DESCRIPTION } from '../constants'; // Changed from ../../constants
 
 
 export const substitutePlaceholdersInExecutor = (

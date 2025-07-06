@@ -1,5 +1,5 @@
 // src/pages/HomePage.tsx
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useProjects, useAppSettings } from '../hooks';
 import Header from '../components/Header';
@@ -7,9 +7,9 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import ExportProjectModal from '../components/ExportProjectModal'; 
 import ImportProjectModal from '../components/ImportProjectModal'; 
 import ConclusionOutputModal from '../components/ConclusionOutputModal';
-import { type Project, NodeType, type Node as WorkflowNode, type Link as VisualLink, type ProjectVariable, type ConclusionOutputModalData, type NodeExecutionLog, type WorkflowExecutionCallbacks, type RunStep, type ProjectRun, AppSettings } from '../types'; // Updated path
+import { type Project, NodeType, type Node as WorkflowNode, type Link as VisualLink, type ProjectVariable, type ConclusionOutputModalData, type WorkflowExecutionCallbacks, type ProjectRun } from '../types'; // Updated path
 import { generateId, deepClone, getValidNodes, sanitizeVariableName, projectHasQuestionNodes } from '../utils';
-import { INITIAL_START_NODE_PROMPT, MAX_RUN_HISTORY, NODE_HEIGHT } from '../constants'; // Updated path
+import { INITIAL_START_NODE_PROMPT, MAX_RUN_HISTORY } from '../constants'; // Updated path
 import { executeWorkflow, ExecuteWorkflowResult } from '../utils/workflowExecutorService';
 
 
@@ -199,12 +199,12 @@ const HomePage: React.FC = () => {
         setConclusionModalData(data);
         setIsConclusionModalOpen(true);
       },
-      onRequestUserInput: (questionText, nodeId) => {
+      onRequestUserInput: () => {
         setHomePageRunError(`Project "${projectToRun.name}" requires user input, which is not supported for runs started from the home page. Please open the project to run it.`);
         runStopRequestedRef.current = true; 
         return Promise.reject(new Error("User input required, not supported in this mode."));
       },
-      onTokenUpdate: (tokensUsedThisStep) => {
+      onTokenUpdate: () => {
         // Tokens are accumulated by the service now.
       },
       getActiveExecutionCount: () => activeExecutionCountRef.current,

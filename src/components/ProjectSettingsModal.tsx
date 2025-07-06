@@ -1,7 +1,7 @@
 // src/components/ProjectSettingsModal.tsx
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import type { ProjectSettingsModalProps, Project, ProjectVariable } from '../types'; // Updated path
+import type { ProjectSettingsModalProps, ProjectVariable } from '../types'; // Updated path
 import { generateId, sanitizeVariableName } from '../utils'; 
 
 const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({ project, isOpen, onClose, onSave }) => {

@@ -1,7 +1,6 @@
 import React from 'react';
 import Modal from '../Modal';
 import type { Node, NodeExecutionLog } from '../../types';
-import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface ExecutionLogModalProps {
   logs: NodeExecutionLog[];
@@ -18,7 +17,6 @@ interface ExecutionLogModalProps {
 const ExecutionLogModal: React.FC<ExecutionLogModalProps> = ({
   logs, currentExecutingNodeId, nodes = [], runStartTime, runEndTime, totalTokensThisRun, isOpen, onClose, currentProjectName
 }) => {
-  const isMobile = useIsMobile();
 
   const formatTime = (isoString?: string) => {
     if (!isoString) return '-';

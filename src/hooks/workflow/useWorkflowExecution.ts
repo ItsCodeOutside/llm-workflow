@@ -1,9 +1,9 @@
 
 // src/hooks/workflow/useWorkflowExecution.ts
-import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAppSettings } from '../../hooks';
 import {
-  type Project, NodeType, type ProjectRun, type RunStep, type Node, ProjectVariable, type NodeExecutionLog, LLMProvider, ConclusionOutputModalData, NextStepInfo, type AppSettings, WorkflowExecutionCallbacks
+  type Project, NodeType, type ProjectRun, ProjectVariable, WorkflowExecutionCallbacks
 } from '../../types';
 import { deepClone, generateId, getValidNodes, sanitizeVariableName } from '../../utils';
 import { MAX_RUN_HISTORY } from '../../constants';

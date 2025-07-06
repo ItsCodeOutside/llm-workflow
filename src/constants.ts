@@ -1,5 +1,5 @@
 // src/constants.ts
-import { AppSettings, LLMProvider, Node, NodeType } from './engineTypes';
+import { AppSettings, LLMProvider, NodeType } from './engineTypes';
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   llmProvider: LLMProvider.OLLAMA, // Changed to Ollama

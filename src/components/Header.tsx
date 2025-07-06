@@ -1,6 +1,6 @@
 // src/components/Header.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useAppSettings, useIsMobile } from '../hooks';
 import AppSettingsModal from './AppSettingsModal';
 import type { AppSettings } from '../types'; // Updated path
@@ -42,7 +42,6 @@ const Header: React.FC<HeaderProps> = ({
   const { appSettings, setAppSettings } = useAppSettings();
   const isMobile = useIsMobile();
   const moreMenuRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
   const isPwa = window.matchMedia('(display-mode: standalone)').matches;
 
   const handleSaveAppSettings = (newSettings: AppSettings) => {

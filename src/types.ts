@@ -1,6 +1,6 @@
 
 // src/types.ts
-import type { Node, Project, AppSettings, ProjectRun, ProjectVariable, ConclusionOutputModalData } from './engineTypes';
+import type { Node, Project, AppSettings, ProjectRun, ConclusionOutputModalData } from './engineTypes';
 import { NodeType, Link } from './engineTypes'; // Explicit import for use in this file
 export * from './engineTypes'; // Re-export all engine types
 

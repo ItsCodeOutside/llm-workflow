@@ -1,7 +1,7 @@
 // src/hooks/useVisualLinks.ts
 import { useState, useEffect } from 'react';
 import { type Node, type Link as VisualLink, NodeType } from '../types'; // Updated path
-import { NODE_WIDTH, NODE_HEIGHT } from '../constants'; // Updated path
+
 
 const getLineToRectangleIntersectionPoint = (
   lineP1: { x: number; y: number },

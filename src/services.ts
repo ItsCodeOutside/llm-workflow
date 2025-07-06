@@ -1,5 +1,5 @@
 // src/services.ts
-import { Project, AppSettings, Node, NodeType, Link as VisualLink } from './types'; // Updated path
+import { Project, AppSettings, Node, NodeType } from './types'; // Updated path
 import { LOCAL_STORAGE_PROJECTS_KEY, LOCAL_STORAGE_SETTINGS_KEY, DEFAULT_APP_SETTINGS } from './constants'; // Updated path
 import { generateId } from './utils'; 
 
