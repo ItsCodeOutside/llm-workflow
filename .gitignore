@@ -22,7 +22,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-dist-module/src/constants.js
-dist-module/src/engineTypes.d.ts
-dist-module/src/engineTypes.js
-dist-module/src/utils/workflowExecutorService.js
+dist-module/*

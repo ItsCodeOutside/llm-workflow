@@ -147,7 +147,7 @@ const CanvasArea: React.FC<ExtendedCanvasAreaProps> = ({
                         }
                     </div>
                 ) : node.type === NodeType.PERSISTENT_VARIABLE ? (
-                    <div className="text-xs text-yellow-200 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
+                    <div className="text-xs text-yellow-100 h-14 overflow-y-auto custom-scroll w-full text-center px-1">
                         <p className="font-semibold italic">Persistent: {'{'+(node.persistentVariableName || 'PersistentVar')+'}'}</p>
                         {node.isRunning ?
                              <p className="mt-1 text-yellow-300">(Processing...)</p> :
